@@ -15,8 +15,13 @@ interface Link {
   value: number;
 }
 
+interface GraphData {
+    nodes: Node[];
+    links: Link[];
+}
+
 export const GraphView: React.FC = () => {
-  const [data, setData] = useState({ nodes: [], links: [] });
+  const [data, setData] = useState<GraphData>({ nodes: [], links: [] });
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 600 });
   const [loading, setLoading] = useState(false);
@@ -43,7 +48,7 @@ export const GraphView: React.FC = () => {
         const locations: any[] = await invoke('get_locations');
         const relationships: any[] = await invoke('get_relationships');
 
-        const nodes: any[] = [
+        const nodes: Node[] = [
             ...characters.map(c => ({ id: c.name, group: 'character', name: c.name, val: 5 })),
             ...locations.map(l => ({ id: l.name, group: 'location', name: l.name, val: 3 }))
         ];
@@ -51,9 +56,9 @@ export const GraphView: React.FC = () => {
         // Deduplicate nodes
         const uniqueNodesMap = new Map();
         nodes.forEach(n => uniqueNodesMap.set(n.id, n));
-        const uniqueNodes = Array.from(uniqueNodesMap.values());
+        const uniqueNodes = Array.from(uniqueNodesMap.values()) as Node[];
 
-        const links: any[] = relationships.map(r => ({
+        const links: Link[] = relationships.map(r => ({
             source: r.from_id,
             target: r.to_id,
             value: 1
