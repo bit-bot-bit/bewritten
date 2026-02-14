@@ -6,6 +6,7 @@ import { ContextSidebar } from "./components/sidebar/ContextSidebar";
 import { ProvenanceView } from "./components/provenance/ProvenanceView";
 import { GraphView } from "./components/graph/GraphView";
 import { SuggestionPanel } from "./components/suggestions/SuggestionPanel";
+import { SettingsModal } from "./components/settings/SettingsModal";
 
 function App() {
   const [projectPath, setProjectPath] = useState("");
@@ -14,6 +15,7 @@ function App() {
   const [isProvenanceOpen, setIsProvenanceOpen] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [issues, setIssues] = useState<any[]>([]);
   const [aiIssues, setAiIssues] = useState<string[]>([]);
 
@@ -126,6 +128,7 @@ function App() {
         <header className="h-12 border-b flex items-center px-4 justify-between bg-gray-50 shrink-0">
             <span className="font-semibold text-gray-700">Chapter 1</span>
             <div>
+                <button className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 mr-2" onClick={() => setIsSettingsOpen(true)}>⚙️</button>
                 <button className="text-sm bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200 mr-2" onClick={handleCheckContinuity}>Check</button>
                 <button className="text-sm bg-orange-100 text-orange-700 px-3 py-1 rounded hover:bg-orange-200 mr-2" onClick={() => setIsGraphOpen(true)}>Graph</button>
                 <button className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded hover:bg-purple-200 mr-2" onClick={() => setIsProvenanceOpen(true)}>History</button>
@@ -152,6 +155,8 @@ function App() {
       )}
 
       {isSuggestionOpen && <SuggestionPanel issues={issues} aiIssues={aiIssues} isOpen={isSuggestionOpen} onClose={() => setIsSuggestionOpen(false)} />}
+
+      {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }
