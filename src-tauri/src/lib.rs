@@ -4,6 +4,7 @@ pub mod commands;
 pub mod analysis;
 pub mod provenance;
 pub mod ai;
+pub mod settings_model;
 
 use tauri::Manager;
 use std::sync::Mutex;
@@ -40,6 +41,9 @@ pub fn run() {
             commands::project::get_provenance,
             commands::analysis::analyze_text,
             commands::analysis::check_continuity,
+            commands::analysis::recalculate_relationships, // Added new command
+            commands::settings::get_settings,
+            commands::settings::save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

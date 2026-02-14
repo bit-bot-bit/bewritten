@@ -102,5 +102,18 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
         [],
     )?;
 
+    // Settings table for storing user preferences (AI provider, key, model)
+    // Key/ID is 'config' for the singleton row
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS settings (
+            id TEXT PRIMARY KEY,
+            ai_provider TEXT, -- 'openai', 'ollama', etc.
+            ai_base_url TEXT,
+            ai_api_key TEXT,
+            ai_model TEXT
+        )",
+        [],
+    )?;
+
     Ok(())
 }
