@@ -10,24 +10,31 @@ A Helm chart for deploying the Mythos AI Story Architect (Bewritten) application
 
 ## Installation
 
-### Add the repository
+### Install from Git Repository (Direct)
+
+You can install the chart directly from the GitHub repository without cloning it first.
 
 ```bash
-# Clone the repository
+# Install directly from the main branch
+helm install bewritten oci://ghcr.io/bit-bot-bit/charts/bewritten --version 0.1.0
+```
+
+*Note: This assumes the chart is published to GHCR as an OCI artifact. If you are installing from the raw Git source:*
+
+```bash
+# Install from the raw Git URL (requires helm-git plugin or similar, or just git clone)
 git clone https://github.com/bit-bot-bit/bewritten.git
-cd bewritten/charts
+helm install bewritten bewritten/charts/bewritten
 ```
 
-### Install the chart
+### Install from Helm Repository (if published)
+
+If the chart is hosted on a Helm repository (e.g., GitHub Pages):
 
 ```bash
-helm install bewritten ./bewritten --namespace default
-```
-
-### Upgrade the chart
-
-```bash
-helm upgrade bewritten ./bewritten --namespace default
+helm repo add bit-bot-bit https://bit-bot-bit.github.io/bewritten/
+helm repo update
+helm install bewritten bit-bot-bit/bewritten
 ```
 
 ### Uninstall the chart
