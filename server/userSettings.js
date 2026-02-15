@@ -56,12 +56,13 @@ export function getDefaultUserAiSettings() {
   };
 }
 
-export function getUserAiSettings(email, options = {}) {
+export async function getUserAiSettings(email, options = {}) {
   const { includeSecret = false } = options;
   const db = getDb();
-  const row = db.prepare(
-    `SELECT ai_target, ai_api_key, ai_model, ai_base_url FROM user_settings WHERE user_email = ?`
-  ).get(email);
+  const row = await db('user_settings')
+    .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url')
+    .where('user_email', email)
+    .first();
 
   if (!row) return getDefaultUserAiSettings();
 
@@ -76,10 +77,10 @@ export function getUserAiSettings(email, options = {}) {
   };
 }
 
-export function saveUserAiSettings(email, next, options = {}) {
+export async function saveUserAiSettings(email, next, options = {}) {
   const { keepExistingKey = true } = options;
   const db = getDb();
-  const current = getUserAiSettings(email, { includeSecret: true });
+  const current = await getUserAiSettings(email, { includeSecret: true });
   const merged = { ...current, ...next };
 
   const allowedTargets = new Set(['gemini', 'openai_compatible', 'disabled']);
@@ -94,24 +95,24 @@ export function saveUserAiSettings(email, next, options = {}) {
 
   const storedApiKey = resolvedApiKey ? encryptSecret(resolvedApiKey) : '';
 
-  db.prepare(
-    `INSERT INTO user_settings (user_email, ai_target, ai_api_key, ai_model, ai_base_url, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(user_email) DO UPDATE SET
-       ai_target = excluded.ai_target,
-       ai_api_key = excluded.ai_api_key,
-       ai_model = excluded.ai_model,
-       ai_base_url = excluded.ai_base_url,
-       updated_at = excluded.updated_at`
-  ).run(
-    email,
-    merged.aiTarget,
-    storedApiKey,
-    merged.aiModel || '',
-    merged.aiBaseUrl || '',
-    nowIso(),
-    nowIso(),
-  );
+  await db('user_settings')
+    .insert({
+      user_email: email,
+      ai_target: merged.aiTarget,
+      ai_api_key: storedApiKey,
+      ai_model: merged.aiModel || '',
+      ai_base_url: merged.aiBaseUrl || '',
+      created_at: nowIso(),
+      updated_at: nowIso(),
+    })
+    .onConflict('user_email')
+    .merge({
+      ai_target: merged.aiTarget,
+      ai_api_key: storedApiKey,
+      ai_model: merged.aiModel || '',
+      ai_base_url: merged.aiBaseUrl || '',
+      updated_at: nowIso(),
+    });
 
   return getUserAiSettings(email);
 }

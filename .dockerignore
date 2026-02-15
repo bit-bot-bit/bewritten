@@ -1,0 +1,7 @@
+node_modules
+dist
+.git
+.env
+test.db
+server/bewritten.db
+coverage
