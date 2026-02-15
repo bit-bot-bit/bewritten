@@ -3,7 +3,7 @@ name: bewritten
 description: A Helm chart for Mythos AI Story Architect
 type: application
 version: 0.1.6
-appVersion: "0.1.5"
+appVersion: "0.1.6"
 dependencies:
   - name: postgresql
     version: 16.2.1
