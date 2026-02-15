@@ -3,8 +3,8 @@ import { getUserAiSettings } from './userSettings.js';
 
 const MODEL_FAST = process.env.BEWRITTEN_AI_MODEL || 'gemini-2.5-flash';
 
-function getRuntimeSettings(actorEmail) {
-  const user = actorEmail ? getUserAiSettings(actorEmail, { includeSecret: true }) : null;
+async function getRuntimeSettings(actorEmail) {
+  const user = actorEmail ? await getUserAiSettings(actorEmail, { includeSecret: true }) : null;
   const aiTarget = user?.aiTarget || 'gemini';
   return {
     aiTarget,
@@ -20,15 +20,44 @@ function getClient(apiKey) {
 }
 
 function safeJson(text, fallback) {
+  const raw = String(text || '').trim();
+  if (!raw) return fallback;
+
   try {
-    return JSON.parse(text || '');
+    return JSON.parse(raw);
   } catch {
-    return fallback;
+    // Handle common fenced code block output (```json ... ```).
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenced?.[1]) {
+      try {
+        return JSON.parse(fenced[1]);
+      } catch {}
+    }
+
+    // Fallback: attempt to parse the largest object/array slice.
+    const firstBrace = raw.indexOf('{');
+    const firstBracket = raw.indexOf('[');
+    const starts = [firstBrace, firstBracket].filter((n) => n >= 0);
+    if (starts.length === 0) return fallback;
+    const start = Math.min(...starts);
+
+    const lastBrace = raw.lastIndexOf('}');
+    const lastBracket = raw.lastIndexOf(']');
+    const end = Math.max(lastBrace, lastBracket);
+    if (end <= start) return fallback;
+
+    try {
+      return JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      return fallback;
+    }
   }
 }
 
 async function runOpenAiCompatibleJson({ prompt, fallback, runtime }) {
-  if (!runtime.aiApiKey) return fallback;
+  if (!runtime.aiApiKey) {
+    throw new Error('No API key configured for OpenAI-compatible target.');
+  }
 
   const payload = {
     model: runtime.aiModel || 'gpt-4o-mini',
@@ -48,14 +77,19 @@ async function runOpenAiCompatibleJson({ prompt, fallback, runtime }) {
     body: JSON.stringify(payload),
   });
 
-  if (!resp.ok) return fallback;
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    throw new Error(`OpenAI-compatible API error ${resp.status}: ${body.slice(0, 400)}`);
+  }
   const data = await resp.json();
   const text = data?.choices?.[0]?.message?.content || '';
   return safeJson(text, fallback);
 }
 
 async function runOpenAiCompatibleText({ prompt, fallback, runtime }) {
-  if (!runtime.aiApiKey) return fallback;
+  if (!runtime.aiApiKey) {
+    throw new Error('No API key configured for OpenAI-compatible target.');
+  }
 
   const payload = {
     model: runtime.aiModel || 'gpt-4o-mini',
@@ -72,21 +106,26 @@ async function runOpenAiCompatibleText({ prompt, fallback, runtime }) {
     body: JSON.stringify(payload),
   });
 
-  if (!resp.ok) return fallback;
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    throw new Error(`OpenAI-compatible API error ${resp.status}: ${body.slice(0, 400)}`);
+  }
   const data = await resp.json();
   const text = data?.choices?.[0]?.message?.content || '';
   return (text || fallback || '').replace(/```css/gi, '').replace(/```/g, '').trim();
 }
 
 export async function runJsonPrompt({ prompt, schema, fallback, actorEmail = null }) {
-  const runtime = getRuntimeSettings(actorEmail);
+  const runtime = await getRuntimeSettings(actorEmail);
   if (runtime.aiTarget === 'disabled') return fallback;
 
   if (runtime.aiTarget === 'openai_compatible') {
     return runOpenAiCompatibleJson({ prompt, fallback, runtime });
   }
 
-  if (!runtime.aiApiKey) return fallback;
+  if (!runtime.aiApiKey) {
+    throw new Error('No API key configured for Gemini target.');
+  }
 
   const ai = getClient(runtime.aiApiKey);
   const resp = await ai.models.generateContent({
@@ -102,14 +141,16 @@ export async function runJsonPrompt({ prompt, schema, fallback, actorEmail = nul
 }
 
 export async function runTextPrompt({ prompt, fallback, actorEmail = null }) {
-  const runtime = getRuntimeSettings(actorEmail);
+  const runtime = await getRuntimeSettings(actorEmail);
   if (runtime.aiTarget === 'disabled') return fallback;
 
   if (runtime.aiTarget === 'openai_compatible') {
     return runOpenAiCompatibleText({ prompt, fallback, runtime });
   }
 
-  if (!runtime.aiApiKey) return fallback;
+  if (!runtime.aiApiKey) {
+    throw new Error('No API key configured for Gemini target.');
+  }
 
   const ai = getClient(runtime.aiApiKey);
   const resp = await ai.models.generateContent({

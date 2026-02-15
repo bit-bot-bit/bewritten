@@ -225,7 +225,8 @@ export async function initApp() {
       return res.json(data);
     } catch (error) {
       await recordAiRun({ storyId, actorEmail, task, status: 'failed', errorMessage: String(error) });
-      return res.status(500).json({ error: 'AI request failed' });
+      const message = error instanceof Error ? error.message : String(error || 'AI request failed');
+      return res.status(500).json({ error: message });
     }
   }
 

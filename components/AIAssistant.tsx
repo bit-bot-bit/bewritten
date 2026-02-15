@@ -27,10 +27,15 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
         setInput('');
         setIsThinking(true);
 
-        const response = await chatWithBible(userMsg, storyState);
-        
-        setMessages(prev => [...prev, { role: 'ai', text: response }]);
-        setIsThinking(false);
+        try {
+            const response = await chatWithBible(userMsg, storyState);
+            setMessages(prev => [...prev, { role: 'ai', text: response }]);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'AI request failed';
+            setMessages(prev => [...prev, { role: 'ai', text: `Error: ${message}` }]);
+        } finally {
+            setIsThinking(false);
+        }
     };
 
     if (!isOpen) {
@@ -96,11 +101,12 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
             <div className="p-4 bg-surface border-t border-border">
                 <div className="relative">
                     <input 
-                        className="w-full bg-background text-main rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-1 focus:ring-accent outline-none border border-border placeholder-muted"
+                        className="themed-control w-full rounded-xl pl-4 pr-12 py-3 text-sm focus:ring-1 focus:ring-accent outline-none border"
                         placeholder="Ask anything..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                        style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                     />
                     <button 
                         onClick={handleSend}
