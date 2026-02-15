@@ -117,8 +117,9 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
             value={newCharPrompt}
             onChange={(e) => setNewCharPrompt(e.target.value)}
             placeholder="e.g. A grumpy cyberpunk detective with a cybernetic eye..."
-            className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none placeholder-muted"
+            className="themed-control flex-1 border rounded-xl px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none"
             onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+            style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
           />
           <button
             onClick={handleGenerate}

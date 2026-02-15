@@ -358,3 +358,27 @@ export async function deleteUserByAdmin(actorEmail, targetEmail) {
 
   await db('users').where('email', target).del();
 }
+
+export async function resetUserPasswordByAdmin(actorEmail, targetEmail, newPassword) {
+  const db = getDb();
+  const actor = String(actorEmail || '').trim().toLowerCase();
+  const target = String(targetEmail || '').trim().toLowerCase();
+  const nextPassword = String(newPassword || '');
+
+  if (!target.includes('@')) throw new Error('Valid target email is required');
+  if (actor === target) throw new Error('Use your own Change Password flow to update your password');
+  if (nextPassword.length < 8) throw new Error('Temporary password must be at least 8 characters');
+
+  const existing = await getUserByEmail(target);
+  if (!existing) throw new Error('User not found');
+
+  await db('users')
+    .where('email', target)
+    .update({
+      password_hash: makePasswordHash(nextPassword),
+      must_change_password: 1,
+      updated_at: nowIso(),
+    });
+
+  await db('sessions').where('user_email', target).del();
+}

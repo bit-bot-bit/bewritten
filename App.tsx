@@ -6,6 +6,7 @@ import { CharacterManager } from './components/CharacterManager';
 import { WorldManager } from './components/WorldManager';
 import { TimelineManager } from './components/TimelineManager';
 import { AIAssistant } from './components/AIAssistant';
+import { ChapterRail } from './components/ChapterRail';
 import { StoryList } from './components/StoryList';
 import { AuthPage } from './components/AuthPage';
 import { ForcePasswordChange } from './components/ForcePasswordChange';
@@ -84,6 +85,7 @@ const App = () => {
   const [activeTab, setActiveTab] = useState(AppTab.STORIES);
   const [currentThemeId, setCurrentThemeId] = useState('nexus');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [showToolChapters, setShowToolChapters] = useState(true);
 
   const activeStory = useMemo(() => stories.find((s) => s.id === activeStoryId) || stories[0] || null, [stories, activeStoryId]);
 
@@ -222,6 +224,22 @@ const App = () => {
     return <div className="h-screen w-screen bg-background text-main flex items-center justify-center">Loading stories...</div>;
   }
 
+  const currentTheme = THEMES[currentThemeId] || THEMES.nexus;
+  const activeChapter = activeStory.chapters.find((c) => c.id === activeStory.currentChapterId) || activeStory.chapters[0];
+
+  const renderWithChapterRail = (content) => (
+    <div className="flex h-full relative">
+      <ChapterRail
+        chapters={activeStory.chapters}
+        currentChapterId={activeStory.currentChapterId}
+        onSelectChapter={(chapterId) => updateCurrentStory((s) => ({ ...s, currentChapterId: chapterId }))}
+        showChapters={showToolChapters}
+        onToggle={() => setShowToolChapters((v) => !v)}
+      />
+      <div className="flex-1 min-w-0">{content}</div>
+    </div>
+  );
+
   return (
     <div className="h-screen w-screen bg-background text-main flex overflow-hidden">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} />
@@ -240,28 +258,36 @@ const App = () => {
         {activeTab === AppTab.WRITE && <Editor storyState={activeStory} setStoryState={updateCurrentStory} />}
 
         {activeTab === AppTab.CHARACTERS && (
-          <CharacterManager
-            characters={activeStory.characters}
-            setCharacters={(updater) => updateCurrentStory((s) => ({ ...s, characters: typeof updater === 'function' ? updater(s.characters) : updater }))}
-            currentChapter={activeStory.chapters.find((c) => c.id === activeStory.currentChapterId) || activeStory.chapters[0]}
-          />
+          renderWithChapterRail(
+            <CharacterManager
+              characters={activeStory.characters}
+              setCharacters={(updater) => updateCurrentStory((s) => ({ ...s, characters: typeof updater === 'function' ? updater(s.characters) : updater }))}
+              currentChapter={activeChapter}
+            />
+          )
         )}
 
         {activeTab === AppTab.WORLD && (
-          <WorldManager
-            locations={activeStory.locations}
-            setLocations={(updater) => updateCurrentStory((s) => ({ ...s, locations: typeof updater === 'function' ? updater(s.locations) : updater }))}
-            currentChapter={activeStory.chapters.find((c) => c.id === activeStory.currentChapterId) || activeStory.chapters[0]}
-            chapters={activeStory.chapters}
-          />
+          renderWithChapterRail(
+            <WorldManager
+              locations={activeStory.locations}
+              setLocations={(updater) => updateCurrentStory((s) => ({ ...s, locations: typeof updater === 'function' ? updater(s.locations) : updater }))}
+              currentChapter={activeChapter}
+              chapters={activeStory.chapters}
+            />
+          )
         )}
 
         {activeTab === AppTab.PLOT && (
-          <TimelineManager
-            plotPoints={activeStory.plotPoints}
-            setPlotPoints={(updater) => updateCurrentStory((s) => ({ ...s, plotPoints: typeof updater === 'function' ? updater(s.plotPoints) : updater }))}
-            chapters={activeStory.chapters}
-          />
+          renderWithChapterRail(
+            <TimelineManager
+              plotPoints={activeStory.plotPoints}
+              setPlotPoints={(updater) => updateCurrentStory((s) => ({ ...s, plotPoints: typeof updater === 'function' ? updater(s.plotPoints) : updater }))}
+              characters={activeStory.characters}
+              currentChapter={activeChapter}
+              currentTheme={currentTheme}
+            />
+          )
         )}
 
         {activeTab === AppTab.SETTINGS && <SettingsPage isAdmin={user.role === 'admin'} />}

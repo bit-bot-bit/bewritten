@@ -14,6 +14,14 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
   const [newLocName, setNewLocName] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
+  const isLocationInChapter = (loc: Location, chapterId: string) => {
+    const appearedInChapter = loc.firstAppearanceChapterId === chapterId;
+    const hasEventInChapter = (loc.history || []).some((evt) => evt.chapterId === chapterId);
+    return appearedInChapter || hasEventInChapter;
+  };
+
+  const visibleLocations = locations.filter((loc) => isLocationInChapter(loc, currentChapter.id));
+
   const addLocation = () => {
     if (!newLocName.trim()) return;
     const loc: Location = {
@@ -21,7 +29,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
       name: newLocName,
       description: 'A place of mystery...',
       atmosphere: 'Neutral',
-      history: []
+      history: [],
+      firstAppearanceChapterId: currentChapter.id,
     };
     setLocations([...locations, loc]);
     setNewLocName('');
@@ -99,8 +108,9 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
           value={newLocName}
           onChange={(e) => setNewLocName(e.target.value)}
           placeholder="New Location Name..."
-          className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none placeholder-muted"
+          className="themed-control flex-1 border rounded-xl px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none"
           onKeyDown={(e) => e.key === 'Enter' && addLocation()}
+          style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
         />
         <button
           onClick={addLocation}
@@ -112,7 +122,7 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
       </div>
 
       <div className="space-y-4">
-        {locations.map(loc => (
+        {visibleLocations.map(loc => (
           <div key={loc.id} className="bg-card border border-border rounded-xl p-6">
             <div className="flex gap-6 mb-6">
                 <div className="bg-surface w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 text-accent">
@@ -124,7 +134,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
                     <input 
                         value={loc.name}
                         onChange={(e) => updateLocation(loc.id, 'name', e.target.value)}
-                        className="bg-transparent text-xl font-bold text-main border-b border-transparent hover:border-border focus:border-accent outline-none"
+                        className="themed-control text-xl font-bold border-b border-transparent hover:border-border focus:border-accent outline-none px-2 py-1 rounded"
+                        style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                     />
                     <button 
                         onClick={() => setLocations(locations.filter(l => l.id !== loc.id))}
@@ -140,7 +151,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
                     <textarea
                         value={loc.description}
                         onChange={(e) => updateLocation(loc.id, 'description', e.target.value)}
-                        className="w-full bg-surface/50 border border-border rounded-lg p-3 text-sm text-main focus:ring-1 focus:ring-accent outline-none h-24 resize-none placeholder-muted"
+                        className="themed-control w-full border rounded-lg p-3 text-sm text-main focus:ring-1 focus:ring-accent outline-none h-24 resize-none"
+                        style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                     />
                     </div>
                     <div>
@@ -148,7 +160,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
                     <input
                         value={loc.atmosphere}
                         onChange={(e) => updateLocation(loc.id, 'atmosphere', e.target.value)}
-                        className="w-full bg-surface/50 border border-border rounded-lg p-3 text-sm text-main focus:ring-1 focus:ring-accent outline-none placeholder-muted"
+                        className="themed-control w-full border rounded-lg p-3 text-sm text-main focus:ring-1 focus:ring-accent outline-none"
+                        style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                     />
                     </div>
                 </div>
@@ -177,6 +190,11 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
             </div>
           </div>
         ))}
+        {visibleLocations.length === 0 && (
+          <div className="bg-card border border-border rounded-xl p-6 text-sm text-muted">
+            No locations in "{currentChapter.title}" yet. Scan this chapter or add one manually.
+          </div>
+        )}
       </div>
     </div>
   );
