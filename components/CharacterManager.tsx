@@ -1,0 +1,188 @@
+import React, { useState } from 'react';
+import { Character, Chapter } from '../types';
+import { Plus, Trash2, Wand2, User, ScanSearch, Loader2 } from 'lucide-react';
+import { generateCharacterProfile, extractCharactersFromText } from '../services/geminiService';
+
+interface CharacterManagerProps {
+  characters: Character[];
+  setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
+  currentChapter: Chapter;
+}
+
+export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, setCharacters, currentChapter }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [newCharPrompt, setNewCharPrompt] = useState('');
+
+  const handleGenerate = async () => {
+    if (!newCharPrompt.trim()) return;
+    setIsGenerating(true);
+    try {
+      const profile = await generateCharacterProfile(newCharPrompt);
+      const newCharacter: Character = {
+        id: crypto.randomUUID(),
+        name: profile.name || 'Unknown',
+        role: profile.role || 'Support',
+        description: profile.description || newCharPrompt,
+        traits: profile.traits || [],
+        relationships: []
+      };
+      setCharacters([...characters, newCharacter]);
+      setNewCharPrompt('');
+    } catch (e) {
+      alert("Failed to generate character.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleScanChapter = async () => {
+      if (!currentChapter.content.trim()) {
+          alert("Current chapter is empty!");
+          return;
+      }
+      setIsScanning(true);
+      try {
+          const result = await extractCharactersFromText(currentChapter.content, characters);
+          
+          let updatedCharacters = [...characters];
+
+          // Process updates
+          result.updates.forEach(upd => {
+              const idx = updatedCharacters.findIndex(c => c.name.toLowerCase() === upd.name.toLowerCase());
+              if (idx !== -1) {
+                  updatedCharacters[idx] = {
+                      ...updatedCharacters[idx],
+                      description: updatedCharacters[idx].description + `\n[Update from ${currentChapter.title}]: ${upd.descriptionUpdate}`
+                  };
+              }
+          });
+
+          // Process new
+          result.newCharacters.forEach(nc => {
+              if (nc.name && !updatedCharacters.find(c => c.name.toLowerCase() === nc.name?.toLowerCase())) {
+                  updatedCharacters.push({
+                      id: crypto.randomUUID(),
+                      name: nc.name,
+                      role: nc.role || 'Support',
+                      description: nc.description || '',
+                      traits: nc.traits || [],
+                      relationships: []
+                  });
+              }
+          });
+
+          setCharacters(updatedCharacters);
+          alert(`Scan complete. Found ${result.newCharacters.length} new characters and updated ${result.updates.length}.`);
+
+      } catch (e) {
+          alert("Failed to scan chapter.");
+      } finally {
+          setIsScanning(false);
+      }
+  };
+
+  const deleteCharacter = (id: string) => {
+    setCharacters(characters.filter(c => c.id !== id));
+  };
+
+  return (
+    <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto">
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h2 className="text-3xl font-bold text-main">Character Bible</h2>
+          <p className="text-muted mt-2">Manage your cast. Scan your story to auto-populate or update details.</p>
+        </div>
+        
+        <button 
+            onClick={handleScanChapter}
+            disabled={isScanning}
+            className="bg-accent-dim border border-accent/50 hover:bg-accent/20 text-accent px-4 py-2 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50"
+        >
+            {isScanning ? <Loader2 size={18} className="animate-spin" /> : <ScanSearch size={18} />}
+            Scan "{currentChapter.title}"
+        </button>
+      </div>
+
+      {/* Generator */}
+      <div className="bg-surface/50 p-6 rounded-2xl border border-border mb-8">
+        <label className="block text-sm font-medium text-muted mb-2">
+          AI Character Generator
+        </label>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            value={newCharPrompt}
+            onChange={(e) => setNewCharPrompt(e.target.value)}
+            placeholder="e.g. A grumpy cyberpunk detective with a cybernetic eye..."
+            className="flex-1 bg-card border border-border rounded-xl px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none placeholder-muted"
+            onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+          />
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="bg-accent hover:brightness-110 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors"
+          >
+            {isGenerating ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <Wand2 size={18} />}
+            Generate
+          </button>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {characters.map(char => (
+          <div key={char.id} className="bg-card border border-border rounded-2xl p-6 group hover:border-accent/50 transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-muted">
+                  <User size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-main">{char.name}</h3>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface text-muted uppercase tracking-wider">
+                    {char.role}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => deleteCharacter(char.id)}
+                className="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+            
+            <p className="text-muted text-sm mb-4 line-clamp-3 whitespace-pre-line">{char.description}</p>
+            
+            <div className="flex flex-wrap gap-2">
+              {char.traits.map((trait, i) => (
+                <span key={i} className="text-xs bg-accent-dim text-accent px-2 py-1 rounded-md border border-accent/20">
+                  {trait}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <button 
+          onClick={() => {
+             const newC: Character = { 
+                 id: crypto.randomUUID(), 
+                 name: 'New Character', 
+                 role: 'Support', 
+                 description: 'Description here...', 
+                 traits: [], 
+                 relationships: [] 
+             };
+             setCharacters([...characters, newC]);
+          }}
+          className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center text-muted hover:text-accent hover:border-accent/50 transition-all cursor-pointer min-h-[200px]"
+        >
+          <Plus size={32} className="mb-2" />
+          <span className="font-medium">Add Manually</span>
+        </button>
+      </div>
+    </div>
+  );
+};

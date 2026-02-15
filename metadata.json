@@ -1,0 +1,5 @@
+{
+  "name": "Mythos AI: Story Architect",
+  "description": "An AI-powered creative writing suite that helps authors map characters, maintain continuity, and visualize plot arcs using Gemini models.",
+  "requestFramePermissions": []
+}
