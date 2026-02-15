@@ -2,10 +2,10 @@ apiVersion: v2
 name: bewritten
 description: A Helm chart for Mythos AI Story Architect
 type: application
-version: 0.1.5
+version: 0.1.6
 appVersion: "0.1.5"
 dependencies:
   - name: postgresql
-    version: 13.2.0
+    version: 16.2.1
     repository: https://charts.bitnami.com/bitnami
     condition: postgresql.enabled
