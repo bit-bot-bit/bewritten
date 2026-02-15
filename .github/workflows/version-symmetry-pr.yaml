@@ -22,6 +22,7 @@ jobs:
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
@@ -125,11 +126,35 @@ jobs:
             .replace(/^appVersion:\s*"?[^"\n]+"?\s*$/m, `appVersion: "${next}"`);
           fs.writeFileSync('charts/bewritten/Chart.yaml', updatedChart);
 
-          const updatedValues = values.replace(
-            /^image:\s*[\r\n]+((?:[^\n]*\n)*?)(\s*#?\s*tag:\s*"?[^"\n]+"?\s*)/m,
-            (full, block) => `image:\n${block.replace(/\n$/, '')}\n  tag: "${next}"\n`
-          );
-          fs.writeFileSync('charts/bewritten/values.yaml', updatedValues);
+          const lines = values.split(/\r?\n/);
+          const topLevelKey = (line) => /^[A-Za-z0-9_-]+:\s*/.test(line);
+          const imageStart = lines.findIndex((line) => /^image:\s*$/.test(line));
+          if (imageStart === -1) {
+            throw new Error('Top-level image block not found in values.yaml');
+          }
+
+          let imageEnd = lines.length;
+          for (let i = imageStart + 1; i < lines.length; i += 1) {
+            if (topLevelKey(lines[i])) {
+              imageEnd = i;
+              break;
+            }
+          }
+
+          let replaced = false;
+          for (let i = imageStart + 1; i < imageEnd; i += 1) {
+            if (/^\s{2}tag:\s*/.test(lines[i])) {
+              lines[i] = `  tag: "${next}"`;
+              replaced = true;
+              break;
+            }
+          }
+
+          if (!replaced) {
+            lines.splice(imageEnd, 0, `  tag: "${next}"`);
+          }
+
+          fs.writeFileSync('charts/bewritten/values.yaml', `${lines.join('\n').replace(/\n+$/, '\n')}`);
 
           fs.writeFileSync('VERSION', `${next}\n`);
 
@@ -143,4 +168,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json charts/bewritten/Chart.yaml charts/bewritten/values.yaml VERSION
           git commit -m "chore: align versions to ${{ steps.normalize.outputs.new_version }} [skip ci]"
-          git push
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
