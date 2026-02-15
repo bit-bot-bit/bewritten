@@ -33,17 +33,17 @@ spec:
               value: {{ .Values.env.BEWRITTEN_ADMIN_PASSWORD | quote }}
             - name: BEWRITTEN_SECRET_KEY
               value: {{ .Values.env.BEWRITTEN_SECRET_KEY | quote }}
-            {{- if .Values.postgresql.enabled }}
+            {{- if .Values.postgres.enabled }}
             - name: DB_HOST
-              value: "{{ .Release.Name }}-postgresql"
+              value: "{{ include "bewritten.fullname" . }}-postgres"
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
-              value: {{ .Values.postgresql.auth.username | quote }}
+              value: {{ .Values.postgres.auth.username | quote }}
             - name: DB_PASSWORD
-              value: {{ .Values.postgresql.auth.password | quote }}
+              value: {{ .Values.postgres.auth.password | quote }}
             - name: DB_NAME
-              value: {{ .Values.postgresql.auth.database | quote }}
+              value: {{ .Values.postgres.auth.database | quote }}
             {{- end }}
           livenessProbe:
             httpGet:
