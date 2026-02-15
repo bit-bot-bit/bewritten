@@ -1,74 +1,67 @@
-# Book Writing Assistant
+# Mythos AI: Story Architect
 
-A local-first desktop app for writing fiction with tracking for characters, continuity, and relationships.
+Mythos AI is an intelligent, AI-powered creative writing suite designed to help authors craft complex narratives, maintain continuity, and visualize story structures. By integrating Google's Gemini models directly into the writing workflow, Mythos acts as a co-author, editor, and world-builder.
 
-## Features
+## 🌟 Key Features
 
--   **Local-First Storage**: All data stored in a human-readable project folder (YAML, Markdown, SQLite).
--   **Entity Tracking**: Characters, Locations, Scenes.
--   **Graph Visualization**: Interactive force-directed graph of relationships with **Smart Connections** (auto-updates based on scene co-occurrences).
--   **Continuity Engine**: Checks for dead characters, location mismatches, etc.
--   **Provenance Tracking**: Logs every edit with author/AI attribution.
--   **AI Assistance**: Optional pluggable AI (OpenAI, Ollama, etc.) for review. Configurable in Settings.
+### 1. **AI-Assisted Writing & Editing**
+*   **Smart Editor**: A distraction-free writing environment that toggles between Edit Mode and a visualized Book View (A5, Standard, Pocket sizes).
+*   **Continuity Check**: Analyze your written chapters against your defined characters and settings to find contradictions or plot holes using Gemini 3 Flash.
+*   **Co-Author Chat**: A dedicated AI assistant context-aware of your specific story bible to answer questions or brainstorm ideas.
 
-## Tech Stack
+### 2. **Dynamic Story Bible**
+*   **Character Manager**: Create characters manually or generate detailed profiles using AI. Scan your written chapters to automatically detect and update character traits and descriptions.
+*   **World Building**: specific location tracking that records history and events per chapter. Scan text to auto-populate location data.
 
--   **Frontend**: React, TypeScript, Tailwind CSS, CodeMirror, React Force Graph.
--   **Backend**: Rust (Tauri), SQLite (Rusqlite).
+### 3. **Plot & Pacing Visualization**
+*   **Timeline Manager**: Map out plot points and visualize the **Tension Arc** of your story using interactive charts.
+*   **AI Suggestions**: Stuck on what happens next? Ask the AI to suggest the next logical plot beat based on your current trajectory.
 
-## Getting Started
+### 4. **Multi-Story Management**
+*   **Library**: Manage multiple distinct stories and universes.
+*   **User Isolation**: Secure login system (simulated) that isolates data per user, allowing multiple writers to use the same device without data overlap.
 
-### Prerequisites
+### 5. **Export & Publishing**
+*   **Multi-Format Export**: Download your work as Markdown, Plain Text, or formatted HTML/PDF.
+*   **AI Formatting**: Generate custom CSS for print-ready layouts based on natural language descriptions (e.g., "Fantasy novel with drop caps and wide margins").
+*   **Blurb Generator**: Automatically generate back-cover synopsis based on your story content.
 
--   Node.js & npm
--   Rust & Cargo
--   **Linux System Dependencies** (required if building on Linux):
-    ```bash
-    sudo apt-get update
-    sudo apt-get install -y libwebkit2gtk-4.0-dev \
-        build-essential \
-        curl \
-        wget \
-        file \
-        libssl-dev \
-        libgtk-3-dev \
-        libayatana-appindicator3-dev \
-        librsvg2-dev
-    ```
+## 🛠️ Technical Stack
 
-### Installation
+*   **Frontend**: React 19, TypeScript
+*   **Styling**: Tailwind CSS
+*   **AI Integration**: Google GenAI SDK (`@google/genai`), using models like `gemini-3-flash-preview` for low latency.
+*   **Visualization**: Recharts for plot tension graphs.
+*   **Icons**: Lucide React.
+*   **State Management**: React State + LocalStorage persistence.
 
-1.  Clone the repo.
-2.  Install frontend dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run in development mode:
-    ```bash
-    npm run tauri dev
-    ```
+## 🚀 Getting Started
 
-### Automated Builds (GitHub Actions)
+1.  **Authentication**:
+    *   On launch, you will be greeted by the Authentication Screen.
+    *   Enter an email and password (this is a local simulation, no real backend is required).
+    *   Your stories are saved specifically to your email key in LocalStorage.
 
-This repository includes a GitHub Actions workflow that automatically builds the application for:
--   **Linux** (`.deb`, `.AppImage`)
--   **Windows** (`.exe`, `.msi`)
--   **macOS** (`.app`, `.dmg`)
+2.  **Creating a Story**:
+    *   Click "Create New Story" or select the default template "Neon Echoes".
+    *   Navigate to the **Write** tab to begin drafting.
 
-To get the latest build without setting up a dev environment, check the **Releases** or **Actions** tab in GitHub.
+3.  **Using AI Tools**:
+    *   **Scan**: In Characters, World, or Plot tabs, use the "Scan" button to read your current chapter and extract data automatically.
+    *   **Analyze**: In the Editor sidebar, click "Analyze" to run a continuity check.
+    *   **Co-Author**: Click the floating chat button in the bottom right to talk to your story.
 
-## Usage
+## 🎨 Themes
 
-1.  **Create/Load Project**: Enter a path to a folder. If it doesn't exist, click "Create New".
-2.  **Write**: Use the editor. Mentions (`@Character`, `#Location`) are auto-extracted.
-3.  **Save**: Click "Save" to write to Markdown and update the database.
-4.  **Graph**: Click "Graph" to see relationships. Click "Update Connections" to infer relationships from text.
-5.  **Check**: Click "Check" to run continuity analysis.
-6.  **History**: Click "History" to see the audit log.
-7.  **Settings**: Click the gear icon to configure AI provider (OpenAI, Ollama, etc.).
+The application supports multiple visual themes to match your writing mood:
+*   **Nexus**: A clean, modern slate/indigo theme (Default).
+*   **Grimm**: A warm, earthy theme for fantasy writers.
+*   **Nebula**: A high-contrast dark theme for sci-fi writers.
 
-## Project Structure
+## ⚠️ Requirements
 
--   `src/`: React frontend.
--   `src-tauri/`: Rust backend.
--   `examples/`: Demo project.
+*   **API Key**: This application requires a valid Google Gemini API Key provided in the environment variables.
+
+---
+
+*Craft Worlds. Weave Myths.*

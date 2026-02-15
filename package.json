@@ -1,40 +1,31 @@
 {
-  "name": "book-writer-app",
+  "name": "mythos-ai:-story-architect",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "server": "node server/index.js",
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "tauri": "tauri"
+    "dev:all": "concurrently -k \"npm run server\" \"npm run dev\"",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@codemirror/lang-markdown": "^6.5.0",
-    "@codemirror/language-data": "^6.5.2",
-    "@tailwindcss/postcss": "^4.1.18",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
-    "@uiw/react-codemirror": "^4.25.4",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.564.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-force-graph-2d": "^1.29.1",
-    "react-router-dom": "^7.13.0",
+    "better-sqlite3": "^12.4.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "google-auth-library": "^10.5.0",
     "recharts": "^3.7.0",
-    "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.6"
+    "react": "^19.2.4",
+    "@google/genai": "^1.41.0",
+    "lucide-react": "^0.564.0",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
-    "autoprefixer": "^10.4.24",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
-    "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
   }
 }
