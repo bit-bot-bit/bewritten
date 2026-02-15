@@ -36,16 +36,15 @@ env:
   BEWRITTEN_SECRET_KEY: "change-this-to-a-secure-random-string"
   # DB connection details will be auto-generated if postgresql is enabled
 
-postgresql:
+postgres:
   enabled: true
   image:
     tag: "16"
   auth:
-    postgresPassword: "supersecretpostgrespassword"
     username: "bewritten"
     password: "bewrittenpassword"
     database: "bewritten"
-  primary:
-    persistence:
-      enabled: true
-      size: 1Gi
+  persistence:
+    enabled: true
+    size: 1Gi
+    # storageClass: ""
