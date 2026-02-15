@@ -30,7 +30,8 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
       setCharacters([...characters, newCharacter]);
       setNewCharPrompt('');
     } catch (e) {
-      alert("Failed to generate character.");
+      const message = e instanceof Error ? e.message : 'Failed to generate character.';
+      alert(message);
     } finally {
       setIsGenerating(false);
     }
@@ -72,11 +73,12 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
               }
           });
 
-          setCharacters(updatedCharacters);
-          alert(`Scan complete. Found ${result.newCharacters.length} new characters and updated ${result.updates.length}.`);
+      setCharacters(updatedCharacters);
+      alert(`Scan complete. Found ${result.newCharacters.length} new characters and updated ${result.updates.length}.`);
 
       } catch (e) {
-          alert("Failed to scan chapter.");
+          const message = e instanceof Error ? e.message : 'Failed to scan chapter.';
+          alert(message);
       } finally {
           setIsScanning(false);
       }

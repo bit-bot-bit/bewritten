@@ -42,7 +42,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
          };
          setPlotPoints([...plotPoints, newPoint]);
      } catch (e) {
-         alert("Could not generate suggestion");
+         const message = e instanceof Error ? e.message : 'Could not generate suggestion';
+         alert(message);
      }
   };
 
@@ -62,7 +63,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
           }));
           setPlotPoints([...plotPoints, ...newPoints]);
       } catch (e) {
-          alert("Failed to scan for plot points");
+          const message = e instanceof Error ? e.message : 'Failed to scan for plot points';
+          alert(message);
       } finally {
           setIsScanning(false);
       }

@@ -67,7 +67,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
 
           setLocations(updatedLocations);
       } catch (e) {
-          alert("Scan failed");
+          const message = e instanceof Error ? e.message : 'Scan failed';
+          alert(message);
       } finally {
           setIsScanning(false);
       }
