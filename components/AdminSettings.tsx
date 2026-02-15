@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPut } from '../services/apiClient';
-import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unlock, Trash2, UserCog } from 'lucide-react';
+import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unlock, Trash2, UserCog, KeyRound } from 'lucide-react';
 
 export const AdminSettings = ({ compact = false }) => {
   const [data, setData] = useState(null);
@@ -60,6 +60,20 @@ export const AdminSettings = ({ compact = false }) => {
     if (!window.confirm(`Delete user ${email}? This removes all their stories and settings.`)) return;
     withRefresh(async () => {
       await apiDelete(`/admin/users/${encodeURIComponent(email)}`);
+    }).catch(() => {});
+  };
+
+  const resetPassword = (email) => {
+    const temporary = window.prompt(`Set a temporary password for ${email} (min 8 chars):`);
+    if (temporary === null) return;
+    const password = temporary.trim();
+    if (password.length < 8) {
+      setError('Temporary password must be at least 8 characters');
+      return;
+    }
+
+    withRefresh(async () => {
+      await apiPut(`/admin/users/${encodeURIComponent(email)}/password`, { password });
     }).catch(() => {});
   };
 
@@ -125,6 +139,7 @@ export const AdminSettings = ({ compact = false }) => {
               <div className="col-span-2 flex justify-end gap-1">
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={14} /></button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={14} /> : <Lock size={14} />}</button>
+                <button onClick={() => resetPassword(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-amber-700/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40" title="Reset password and force change on login"><KeyRound size={14} /></button>
                 <button onClick={() => deleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40" title="Delete user"><Trash2 size={14} /></button>
               </div>
             </div>

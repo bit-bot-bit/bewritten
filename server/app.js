@@ -15,6 +15,7 @@ import {
   setUserLockedByAdmin,
   setUserRoleByAdmin,
   deleteUserByAdmin,
+  resetUserPasswordByAdmin,
   requireAuth,
   requireAdmin,
   requirePasswordFresh,
@@ -160,6 +161,17 @@ export async function initApp() {
       const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
       await deleteUserByAdmin(req.auth.email, email);
       return res.json({ ok: true });
+    } catch (error) {
+      return res.status(400).json({ error: String(error.message || error) });
+    }
+  });
+
+  app.put('/api/admin/users/:email/password', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
+      const password = String(req.body?.password || '');
+      await resetUserPasswordByAdmin(req.auth.email, email, password);
+      return res.json({ ok: true, mustChangePassword: true });
     } catch (error) {
       return res.status(400).json({ error: String(error.message || error) });
     }

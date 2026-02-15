@@ -6,12 +6,15 @@ import path from 'path';
 const TEST_DB = path.resolve('./server/test.db');
 const USER_EMAIL = 'test@example.com';
 const USER_PASSWORD = 'password123';
+const USER_TEMP_PASSWORD = 'TempPass123!';
+const USER_FINAL_PASSWORD = 'FinalPass123!';
 
 describe('API Tests', () => {
   let app;
   let initApp;
   let getDb;
   let userToken;
+  let adminToken;
 
   beforeAll(async () => {
     // Clean up before starting
@@ -66,6 +69,65 @@ describe('API Tests', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.user.email).toBe(USER_EMAIL);
+  });
+
+  test('Admin can reset user password and force password change flow', async () => {
+    const adminLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@example.com', password: 'adminpassword123' });
+    expect(adminLogin.statusCode).toBe(200);
+    adminToken = adminLogin.body.token;
+
+    const resetRes = await request(app)
+      .put(`/api/admin/users/${encodeURIComponent(USER_EMAIL)}/password`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ password: USER_TEMP_PASSWORD });
+    expect(resetRes.statusCode).toBe(200);
+    expect(resetRes.body.mustChangePassword).toBe(true);
+
+    const oldPasswordLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: USER_EMAIL, password: USER_PASSWORD });
+    expect(oldPasswordLogin.statusCode).toBe(401);
+
+    const tempPasswordLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: USER_EMAIL, password: USER_TEMP_PASSWORD });
+    expect(tempPasswordLogin.statusCode).toBe(200);
+    expect(tempPasswordLogin.body.user.mustChangePassword).toBe(true);
+    userToken = tempPasswordLogin.body.token;
+
+    const blockedStories = await request(app)
+      .get('/api/stories')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(blockedStories.statusCode).toBe(403);
+
+    const changeRes = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ currentPassword: USER_TEMP_PASSWORD, newPassword: USER_FINAL_PASSWORD });
+    expect(changeRes.statusCode).toBe(200);
+    expect(changeRes.body.user.mustChangePassword).toBe(false);
+
+    const finalLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: USER_EMAIL, password: USER_FINAL_PASSWORD });
+    expect(finalLogin.statusCode).toBe(200);
+    userToken = finalLogin.body.token;
+
+    const storiesAllowed = await request(app)
+      .get('/api/stories')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(storiesAllowed.statusCode).toBe(200);
+  });
+
+  test('Admin cannot delete self account', async () => {
+    const res = await request(app)
+      .delete(`/api/admin/users/${encodeURIComponent('admin@example.com')}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.statusCode).toBe(400);
+    expect(String(res.body.error || '')).toMatch(/cannot delete your own account/i);
   });
 
   test('Create Story', async () => {
