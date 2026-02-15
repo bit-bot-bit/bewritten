@@ -201,15 +201,26 @@ pub fn save_character(character: Character, state: State<'_, DbState>) -> Result
     Ok(())
 }
 
-#[tauri::command]
-pub fn save_scene(scene: Scene, content: String, state: State<'_, DbState>) -> Result<(), String> {
-    let conn_guard = state.conn.lock().unwrap();
-    let conn = conn_guard.as_ref().ok_or("No project loaded")?;
-
+fn save_scene_internal(conn: &Connection, root: Option<&Path>, scene: Scene, content: String) -> Result<(), String> {
     // extract entities
     let entities = extraction::extract_entities(&content);
     let participants: Vec<String> = entities.characters.into_iter().collect();
     let locations: Vec<String> = entities.locations.into_iter().collect();
+
+    // Auto-register extracted entities
+    for char_name in &participants {
+        conn.execute(
+            "INSERT OR IGNORE INTO characters (id, name, aliases, traits, voice_notes, goals, secrets, current_state, first_appearance, last_seen) VALUES (?1, ?2, '[]', '[]', NULL, NULL, NULL, '{}', NULL, NULL)",
+            (char_name, char_name),
+        ).map_err(|e| e.to_string())?;
+    }
+
+    for loc_name in &locations {
+        conn.execute(
+            "INSERT OR IGNORE INTO locations (id, name, description, rules, adjacency) VALUES (?1, ?2, NULL, NULL, '[]')",
+            (loc_name, loc_name),
+        ).map_err(|e| e.to_string())?;
+    }
 
     conn.execute(
         "INSERT OR REPLACE INTO scenes (id, title, scene_order, summary, pov, time_marker, location_ids, participants, extracted_facts) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -227,10 +238,9 @@ pub fn save_scene(scene: Scene, content: String, state: State<'_, DbState>) -> R
     ).map_err(|e| e.to_string())?;
 
     // Write to file
-    let project_path_guard = state.project_path.lock().unwrap();
-    if let Some(root) = project_path_guard.as_ref() {
+    if let Some(root_path) = root {
         let filename = format!("chapter-{:03}.md", scene.order);
-        let file_path = root.join("manuscript").join(&filename);
+        let file_path = root_path.join("manuscript").join(&filename);
 
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
@@ -251,6 +261,17 @@ pub fn save_scene(scene: Scene, content: String, state: State<'_, DbState>) -> R
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn save_scene(scene: Scene, content: String, state: State<'_, DbState>) -> Result<(), String> {
+    let conn_guard = state.conn.lock().unwrap();
+    let conn = conn_guard.as_ref().ok_or("No project loaded")?;
+
+    let project_path_guard = state.project_path.lock().unwrap();
+    let root = project_path_guard.as_deref();
+
+    save_scene_internal(conn, root, scene, content)
 }
 
 #[tauri::command]
@@ -279,4 +300,44 @@ pub fn get_provenance(file_path: String, state: State<'_, DbState>) -> Result<Ve
         entries.push(entry.map_err(|e| e.to_string())?);
     }
     Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_save_scene_auto_registers_entities() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::create_tables(&conn).unwrap();
+
+        let scene = Scene {
+            id: "s1".to_string(),
+            title: "T".to_string(),
+            order: 1,
+            summary: None,
+            pov: None,
+            time_marker: None,
+            location_ids: vec![],
+            participants: vec![],
+            extracted_facts: vec![],
+        };
+        let content = "Hello @Alice and @Bob at #ThePark.";
+
+        // Test without file system (root = None)
+        save_scene_internal(&conn, None, scene, content.to_string()).unwrap();
+
+        // Verify Alice
+        let count: i32 = conn.query_row("SELECT count(*) FROM characters WHERE id = 'Alice'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1);
+
+        // Verify Bob
+        let count: i32 = conn.query_row("SELECT count(*) FROM characters WHERE id = 'Bob'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1);
+
+        // Verify ThePark
+        let count: i32 = conn.query_row("SELECT count(*) FROM locations WHERE id = 'ThePark'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1);
+    }
 }
