@@ -80,12 +80,49 @@ jobs:
           node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"          
           # Update package-lock.json version and root package version
           node -e "const fs=require('fs');const p=require('./package-lock.json');p.version=process.env.VERSION;if(p.packages&&p.packages[''])p.packages[''].version=process.env.VERSION;fs.writeFileSync('package-lock.json',JSON.stringify(p,null,2)+'\n')"
-          # Update version field in Chart.yaml
-          sed -i "s/^version: .*/version: $VERSION/" charts/bewritten/Chart.yaml
-          # Update appVersion field in Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" charts/bewritten/Chart.yaml
-          # Update chart default runtime image tag to match release image
-          sed -i "/^image:/,/^service:/ s/^[[:space:]]*#\\?[[:space:]]*tag:.*/  tag: \"$VERSION\"/" charts/bewritten/values.yaml
+          # Update chart metadata and default image tag using a deterministic line updater.
+          node <<'NODE'
+          const fs = require('fs');
+          const version = process.env.VERSION;
+
+          const chartPath = 'charts/bewritten/Chart.yaml';
+          let chart = fs.readFileSync(chartPath, 'utf8');
+          chart = chart.replace(/^version:\s*"?[^"\n]+"?\s*$/m, `version: ${version}`);
+          chart = chart.replace(/^appVersion:\s*"?[^"\n]+"?\s*$/m, `appVersion: "${version}"`);
+          fs.writeFileSync(chartPath, chart);
+
+          const valuesPath = 'charts/bewritten/values.yaml';
+          const lines = fs.readFileSync(valuesPath, 'utf8').split(/\r?\n/);
+
+          const topLevelKey = (line) => /^[A-Za-z0-9_-]+:\s*/.test(line);
+          const imageStart = lines.findIndex((line) => /^image:\s*$/.test(line));
+          if (imageStart === -1) {
+            throw new Error('Top-level image block not found in values.yaml');
+          }
+
+          let imageEnd = lines.length;
+          for (let i = imageStart + 1; i < lines.length; i += 1) {
+            if (topLevelKey(lines[i])) {
+              imageEnd = i;
+              break;
+            }
+          }
+
+          let replaced = false;
+          for (let i = imageStart + 1; i < imageEnd; i += 1) {
+            if (/^\s{2}tag:\s*/.test(lines[i])) {
+              lines[i] = `  tag: "${version}"`;
+              replaced = true;
+              break;
+            }
+          }
+
+          if (!replaced) {
+            lines.splice(imageEnd, 0, `  tag: "${version}"`);
+          }
+
+          fs.writeFileSync(valuesPath, `${lines.join('\n').replace(/\n+$/, '\n')}`);
+          NODE
         env:
           VERSION: ${{ steps.bump_version.outputs.new_version }}
 
