@@ -70,27 +70,31 @@ function isConfigured(p) {
   return Boolean(process.env[p.env.clientId] && process.env[p.env.clientSecret]);
 }
 
-function createState(provider, returnTo = '') {
+async function createState(provider, returnTo = '') {
   const db = getDb();
   const state = crypto.randomBytes(24).toString('base64url');
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
 
-  db.prepare(
-    `INSERT INTO oauth_states (state, provider, code_verifier, return_to, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(state, provider, codeVerifier, returnTo || '', nowIso(), expiresAt);
+  await db('oauth_states').insert({
+    state,
+    provider,
+    code_verifier: codeVerifier,
+    return_to: returnTo || '',
+    created_at: nowIso(),
+    expires_at: expiresAt,
+  });
 
   return { state, codeVerifier };
 }
 
-function consumeState(state) {
+async function consumeState(state) {
   const db = getDb();
-  const row = db.prepare(`SELECT state, provider, code_verifier, return_to, expires_at FROM oauth_states WHERE state = ?`).get(state);
+  const row = await db('oauth_states').where('state', state).first();
   if (!row) return null;
 
-  db.prepare(`DELETE FROM oauth_states WHERE state = ?`).run(state);
+  await db('oauth_states').where('state', state).del();
   if (new Date(row.expires_at).getTime() < Date.now()) return null;
   return row;
 }
@@ -121,14 +125,14 @@ export function getOAuthDiagnostics(req) {
   return listOAuthProviders(req);
 }
 
-export function startOAuth(req, res) {
+export async function startOAuth(req, res) {
   const providerId = String(req.params.provider || '').toLowerCase();
   const provider = PROVIDERS[providerId];
   if (!provider) return res.status(404).json({ error: 'Unknown provider' });
   if (!isConfigured(provider)) return res.status(400).json({ error: `${provider.label} is not configured` });
 
   const returnTo = String(req.query.return_to || '').trim();
-  const { state } = createState(provider.id, returnTo);
+  const { state } = await createState(provider.id, returnTo);
 
   const redirectUri = callbackUrl(req, provider.id);
   const clientId = process.env[provider.env.clientId];
@@ -226,13 +230,13 @@ export async function handleOAuthCallback(req, res) {
     const code = String(req.query.code || req.body?.code || '');
     if (!state || !code) throw new Error('Missing OAuth state or code');
 
-    const saved = consumeState(state);
+    const saved = await consumeState(state);
     if (!saved || saved.provider !== provider.id) throw new Error('Invalid OAuth state');
 
     const profile = await exchangeCode(provider, req, code);
     if (!profile.email) throw new Error('OAuth provider did not return an email');
 
-    const session = upsertOAuthUser(provider.id, String(profile.providerUserId), String(profile.email), profile.displayName || null);
+    const session = await upsertOAuthUser(provider.id, String(profile.providerUserId), String(profile.email), profile.displayName || null);
     return res.status(200).send(htmlResult({ ok: true, session, returnTo: saved.return_to || '*' }));
   } catch (error) {
     const message = String(error?.message || error || 'OAuth failed');
@@ -240,7 +244,7 @@ export async function handleOAuthCallback(req, res) {
   }
 }
 
-export function issueSessionForUserEmail(email) {
-  const token = issueSessionForEmail(email);
+export async function issueSessionForUserEmail(email) {
+  const token = await issueSessionForEmail(email);
   return token;
 }

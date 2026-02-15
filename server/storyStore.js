@@ -9,11 +9,12 @@ function hashPayload(payload) {
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
-export function listStoriesByUser(email) {
+export async function listStoriesByUser(email) {
   const db = getDb();
-  const rows = db.prepare(
-    `SELECT payload_json FROM stories WHERE user_email = ? ORDER BY updated_at DESC`
-  ).all(email);
+  const rows = await db('stories')
+    .select('payload_json')
+    .where('user_email', email)
+    .orderBy('updated_at', 'desc');
 
   return rows.map((r) => {
     try {
@@ -24,28 +25,42 @@ export function listStoriesByUser(email) {
   }).filter(Boolean);
 }
 
-export function createStory(email, story) {
+export async function createStory(email, story) {
   const db = getDb();
   const payloadJson = JSON.stringify(story);
   const payloadHash = hashPayload(story);
   const now = nowIso();
 
-  db.prepare(
-    `INSERT INTO stories (id, user_email, title, payload_json, payload_hash, version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
-  ).run(story.id, email, story.title || 'Untitled Story', payloadJson, payloadHash, now, now);
+  await db('stories').insert({
+    id: story.id,
+    user_email: email,
+    title: story.title || 'Untitled Story',
+    payload_json: payloadJson,
+    payload_hash: payloadHash,
+    version: 1,
+    created_at: now,
+    updated_at: now,
+  });
 
-  db.prepare(
-    `INSERT INTO story_versions (story_id, user_email, version, payload_hash, payload_json, created_at)
-     VALUES (?, ?, 1, ?, ?, ?)`
-  ).run(story.id, email, payloadHash, payloadJson, now);
+  await db('story_versions').insert({
+    story_id: story.id,
+    user_email: email,
+    version: 1,
+    payload_hash: payloadHash,
+    payload_json: payloadJson,
+    created_at: now,
+  });
 
   return story;
 }
 
-export function saveStory(email, story) {
+export async function saveStory(email, story) {
   const db = getDb();
-  const existing = db.prepare(`SELECT version, payload_hash FROM stories WHERE id = ? AND user_email = ?`).get(story.id, email);
+  const existing = await db('stories')
+    .select('version', 'payload_hash')
+    .where({ id: story.id, user_email: email })
+    .first();
+
   if (!existing) throw new Error('Story not found');
 
   const payloadJson = JSON.stringify(story);
@@ -55,29 +70,38 @@ export function saveStory(email, story) {
   const nextVersion = Number(existing.version || 1) + 1;
   const now = nowIso();
 
-  db.prepare(
-    `UPDATE stories
-     SET title = ?, payload_json = ?, payload_hash = ?, version = ?, updated_at = ?
-     WHERE id = ? AND user_email = ?`
-  ).run(story.title || 'Untitled Story', payloadJson, payloadHash, nextVersion, now, story.id, email);
+  await db('stories')
+    .where({ id: story.id, user_email: email })
+    .update({
+      title: story.title || 'Untitled Story',
+      payload_json: payloadJson,
+      payload_hash: payloadHash,
+      version: nextVersion,
+      updated_at: now,
+    });
 
-  db.prepare(
-    `INSERT INTO story_versions (story_id, user_email, version, payload_hash, payload_json, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(story.id, email, nextVersion, payloadHash, payloadJson, now);
+  await db('story_versions').insert({
+    story_id: story.id,
+    user_email: email,
+    version: nextVersion,
+    payload_hash: payloadHash,
+    payload_json: payloadJson,
+    created_at: now,
+  });
 
   return story;
 }
 
-export function syncStories(email, stories) {
+export async function syncStories(email, stories) {
   let saved = 0;
   let unchanged = 0;
-  const existingById = new Map(listStoriesByUser(email).map((s) => [s.id, s]));
+  const existingList = await listStoriesByUser(email);
+  const existingById = new Map(existingList.map((s) => [s.id, s]));
 
   for (const story of stories) {
     if (!story?.id) continue;
     if (!existingById.has(story.id)) {
-      createStory(email, story);
+      await createStory(email, story);
       saved += 1;
       continue;
     }
@@ -89,24 +113,35 @@ export function syncStories(email, stories) {
       continue;
     }
 
-    saveStory(email, story);
+    await saveStory(email, story);
     saved += 1;
   }
 
   return { saved, unchanged };
 }
 
-export function deleteStory(email, storyId) {
+export async function deleteStory(email, storyId) {
   const db = getDb();
-  const result = db.prepare('DELETE FROM stories WHERE id = ? AND user_email = ?').run(storyId, email);
-  db.prepare('DELETE FROM story_versions WHERE story_id = ? AND user_email = ?').run(storyId, email);
-  return result.changes > 0;
+  const deleted = await db.transaction(async (trx) => {
+    await trx('story_versions').where({ story_id: storyId, user_email: email }).del();
+    return await trx('stories').where({ id: storyId, user_email: email }).del();
+  });
+  return deleted > 0;
 }
 
-export function recordAiRun({ storyId = null, actorEmail = null, task, status, model = null, errorMessage = null }) {
+export async function recordAiRun({ storyId = null, actorEmail = null, task, status, model = null, errorMessage = null }) {
   const db = getDb();
-  db.prepare(
-    `INSERT INTO ai_runs (story_id, actor_email, task, model, status, error_message, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(storyId, actorEmail, task, model, status, errorMessage, nowIso());
+  try {
+    await db('ai_runs').insert({
+      story_id: storyId,
+      actor_email: actorEmail,
+      task,
+      model,
+      status,
+      error_message: errorMessage,
+      created_at: nowIso(),
+    });
+  } catch (e) {
+    console.error('Failed to record AI run', e);
+  }
 }

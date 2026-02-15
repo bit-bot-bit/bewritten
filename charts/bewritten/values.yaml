@@ -1,0 +1,49 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bit-bot-bit/mythos-ai-story-architect
+  pullPolicy: IfNotPresent
+  # tag: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# Environment variables for the application
+env:
+  BEWRITTEN_ADMIN_EMAIL: "admin@example.com"
+  BEWRITTEN_ADMIN_PASSWORD: "ChangeMeNow123!"
+  BEWRITTEN_SECRET_KEY: "change-this-to-a-secure-random-string"
+  # DB connection details will be auto-generated if postgresql is enabled
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "supersecretpostgrespassword"
+    username: "bewritten"
+    password: "bewrittenpassword"
+    database: "bewritten"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
