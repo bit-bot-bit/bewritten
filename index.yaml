@@ -1,0 +1,19 @@
+apiVersion: v1
+entries:
+  bewritten:
+  - apiVersion: v2
+    appVersion: 0.1.4
+    created: "2026-02-15T12:28:51.025343091Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 13.2.0
+    description: A Helm chart for Mythos AI Story Architect
+    digest: d1abb95a0d39eede24167aa7d8d4a74ad9cc1865c8e9839d770a98f3747a777a
+    name: bewritten
+    type: application
+    urls:
+    - https://github.com/bit-bot-bit/bewritten/releases/download/bewritten-0.1.4/bewritten-0.1.4.tgz
+    version: 0.1.4
+generated: "2026-02-15T12:28:51.025355374Z"
