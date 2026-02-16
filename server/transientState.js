@@ -4,7 +4,22 @@ import crypto from 'node:crypto';
 
 function parseRedisUrl() {
   const raw = process.env.BEWRITTEN_REDIS_URL || process.env.REDIS_URL || '';
-  if (!raw) return null;
+  if (!raw) {
+    const host = String(process.env.BEWRITTEN_REDIS_HOST || '').trim();
+    if (!host) return null;
+    const port = Number(process.env.BEWRITTEN_REDIS_PORT || 6379);
+    const db = Number(process.env.BEWRITTEN_REDIS_DB || 0) || 0;
+    const password = String(process.env.BEWRITTEN_REDIS_PASSWORD || '').trim() || null;
+    const useTls = String(process.env.BEWRITTEN_REDIS_TLS || 'false').toLowerCase() === 'true';
+    return {
+      raw: '',
+      host,
+      port,
+      tls: useTls,
+      password,
+      db,
+    };
+  }
 
   try {
     const url = new URL(raw);

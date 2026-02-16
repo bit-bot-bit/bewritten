@@ -41,10 +41,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
           </div>
         </div>
 
-        <button onClick={onAddStory} className="bg-accent hover:brightness-110 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-accent/20 w-full md:w-auto justify-center self-stretch md:self-auto">
-          <Plus size={20} />
-          Create New Story
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

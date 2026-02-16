@@ -2,6 +2,10 @@ import crypto from 'node:crypto';
 import { getDb } from './db.js';
 
 const SESSION_TTL_DAYS = 30;
+const MAX_LOGIN_BACKOFF_SECONDS = Math.max(10, Number(process.env.BEWRITTEN_LOGIN_BACKOFF_MAX_SECONDS || 300));
+const LOGIN_BACKOFF_BASE_SECONDS = Math.max(1, Number(process.env.BEWRITTEN_LOGIN_BACKOFF_BASE_SECONDS || 2));
+const LOGIN_FAILURE_RESET_WINDOW_SECONDS = Math.max(60, Number(process.env.BEWRITTEN_LOGIN_FAILURE_RESET_WINDOW_SECONDS || 3600));
+const PASSWORD_RECOVERY_ENABLED = String(process.env.BEWRITTEN_PASSWORD_RECOVERY_ENABLED || 'false').toLowerCase() === 'true';
 
 function nowIso() {
   return new Date().toISOString();
@@ -60,7 +64,17 @@ async function getUserByEmail(email) {
   const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   return db('users')
-    .select('email', 'role', 'locked', 'must_change_password', 'password_hash')
+    .select(
+      'email',
+      'role',
+      'tier',
+      'locked',
+      'must_change_password',
+      'password_hash',
+      'failed_login_count',
+      'login_backoff_until',
+      'last_failed_login_at'
+    )
     .where('email', normalizedEmail)
     .first();
 }
@@ -69,9 +83,37 @@ function sanitizeUser(row) {
   return {
     email: row.email,
     role: row.role || 'user',
+    tier: row.tier || 'byok',
     locked: Boolean(row.locked),
     mustChangePassword: Boolean(row.must_change_password),
   };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function secondsUntil(iso) {
+  if (!iso) return 0;
+  const t = Date.parse(String(iso));
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.ceil((t - Date.now()) / 1000));
+}
+
+function nextBackoffSeconds(failedCount) {
+  const n = Math.max(1, Number(failedCount || 1));
+  const exp = Math.min(8, n - 1);
+  const backoff = LOGIN_BACKOFF_BASE_SECONDS * (2 ** exp);
+  return Math.min(MAX_LOGIN_BACKOFF_SECONDS, backoff);
+}
+
+function failureCountAfterWindow(lastFailedAt, currentCount) {
+  if (!lastFailedAt) return Math.max(0, Number(currentCount || 0));
+  const lastMs = Date.parse(String(lastFailedAt));
+  if (!Number.isFinite(lastMs)) return Math.max(0, Number(currentCount || 0));
+  const elapsed = (Date.now() - lastMs) / 1000;
+  if (elapsed > LOGIN_FAILURE_RESET_WINDOW_SECONDS) return 0;
+  return Math.max(0, Number(currentCount || 0));
 }
 
 async function countAdmins() {
@@ -159,18 +201,50 @@ export async function registerAndLogin(email, password) {
   });
 
   const token = await issueSession(normalizedEmail);
-  return { user: { email: normalizedEmail, role: 'user', locked: false, mustChangePassword: false }, token };
+  return { user: { email: normalizedEmail, role: 'user', tier: 'byok', locked: false, mustChangePassword: false }, token };
 }
 
 export async function loginAndIssueSession(email, password) {
+  const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail.includes('@')) throw new Error('Valid email is required');
   if (typeof password !== 'string' || password.length < 1) throw new Error('Password is required');
 
   const existing = await getUserByEmail(normalizedEmail);
-  if (!existing || !existing.password_hash) throw new Error('Invalid credentials');
+  if (!existing || !existing.password_hash) {
+    await sleep(350);
+    throw new Error('Invalid credentials');
+  }
   if (existing.locked) throw new Error('Account is locked');
-  if (!verifyPassword(password, existing.password_hash)) throw new Error('Invalid credentials');
+  const blockedSeconds = secondsUntil(existing.login_backoff_until);
+  if (blockedSeconds > 0) {
+    throw new Error(`Too many login attempts. Try again in ${blockedSeconds} seconds.`);
+  }
+
+  if (!verifyPassword(password, existing.password_hash)) {
+    const activeCount = failureCountAfterWindow(existing.last_failed_login_at, existing.failed_login_count);
+    const nextCount = activeCount + 1;
+    const backoffSeconds = nextBackoffSeconds(nextCount);
+    const backoffUntil = new Date(Date.now() + backoffSeconds * 1000).toISOString();
+    await db('users')
+      .where('email', normalizedEmail)
+      .update({
+        failed_login_count: nextCount,
+        last_failed_login_at: nowIso(),
+        login_backoff_until: backoffUntil,
+        updated_at: nowIso(),
+      });
+    throw new Error(`Invalid credentials. Try again in ${backoffSeconds} seconds.`);
+  }
+
+  await db('users')
+    .where('email', normalizedEmail)
+    .update({
+      failed_login_count: 0,
+      last_failed_login_at: null,
+      login_backoff_until: null,
+      updated_at: nowIso(),
+    });
 
   const token = await issueSession(normalizedEmail);
   return { user: sanitizeUser(existing), token };
@@ -217,7 +291,7 @@ export async function upsertOAuthUser(provider, providerUserId, email, displayNa
     });
 
   const token = await issueSession(normalizedEmail);
-  return { user: { email: normalizedEmail, role: 'user', locked: false, mustChangePassword: false }, token };
+  return { user: { email: normalizedEmail, role: 'user', tier: 'byok', locked: false, mustChangePassword: false }, token };
 }
 
 export async function resolveSession(token) {
@@ -273,6 +347,10 @@ export async function getCurrentUser(auth) {
   const user = await getUserByEmail(auth?.email);
   if (!user) throw new Error('User not found');
   return sanitizeUser(user);
+}
+
+export function isPasswordRecoveryEnabled() {
+  return PASSWORD_RECOVERY_ENABLED;
 }
 
 export async function changePassword(auth, currentPassword, newPassword) {

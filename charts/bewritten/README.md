@@ -61,6 +61,9 @@ The following table lists the configurable parameters of the Bewritten chart and
 | `tolerations` | Tolerations for app pods | `[]` |
 | `env.BEWRITTEN_AI_RATE_WINDOW_SECONDS` | AI transient throttling window (seconds) | `"20"` |
 | `env.BEWRITTEN_AI_RATE_MAX` | Max AI calls per user+task within window | `"8"` |
+| `env.BEWRITTEN_PUBLIC_URL` | Public base URL for OAuth/callback origin checks | `""` |
+| `env.BEWRITTEN_CORS_ORIGINS` | Comma-separated allowed CORS origins | `""` |
+| `env.BEWRITTEN_OAUTH_ALLOWED_ORIGINS` | Extra allowed OAuth postMessage origins | `""` |
 | `redis.enabled` | Deploy bundled Redis for transient cross-pod state | `true` |
 | `redis.url` | External Redis URL override (`redis://...`) | `""` |
 | `redis.password` | Password for bundled Redis | `""` |
@@ -74,6 +77,8 @@ The following table lists the configurable parameters of the Bewritten chart and
 | `env.BEWRITTEN_ADMIN_EMAIL` | Admin email address | `admin@example.com` |
 | `env.BEWRITTEN_ADMIN_PASSWORD` | Admin password | `ChangeMeNow123!` |
 | `env.BEWRITTEN_SECRET_KEY` | App secret key (change in prod!) | `change-this-to-a-secure-random-string` |
+| `secrets.existingSecret` | Existing secret name to source sensitive env vars | `""` |
+| `secrets.create` | Create chart-managed secret from values | `true` |
 | `postgres.enabled` | Deploy bundled PostgreSQL (single instance) | `true` |
 | `postgres.auth.username` | Database username | `bewritten` |
 | `postgres.auth.password` | Database password | `bewrittenpassword` |
@@ -84,6 +89,19 @@ The following table lists the configurable parameters of the Bewritten chart and
 Note: The bundled chart PostgreSQL is a single StatefulSet replica. For full HA in production, use an external HA PostgreSQL service and disable `postgres.enabled`.
 
 Note: Bundled Redis is single-instance and intended for transient coordination (locks/rate limits/counters). For stricter production resiliency, set `redis.url` to a managed Redis deployment.
+
+Security note: the default admin password, app secret, and DB password are development defaults. Keep them for local/dev only. In production, either:
+- set secure values directly, or
+- provide `secrets.existingSecret` and store sensitive keys in Kubernetes Secrets.
+
+Compatibility note: if `env.BEWRITTEN_PUBLIC_URL` is empty and ingress is enabled, the chart derives it from the first ingress host (`http://` or `https://` based on whether TLS entries exist). This preserves existing deployments while enabling stricter origin checks.
+
+If you use `secrets.existingSecret`, the secret must contain keys matching:
+- `BEWRITTEN_ADMIN_EMAIL`
+- `BEWRITTEN_ADMIN_PASSWORD`
+- `BEWRITTEN_SECRET_KEY`
+- `DB_PASSWORD`
+- `BEWRITTEN_REDIS_PASSWORD` (only needed when bundled Redis uses a password)
 
 To override values during installation:
 

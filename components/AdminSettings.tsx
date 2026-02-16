@@ -143,6 +143,7 @@ export const AdminSettings = ({ compact = false }) => {
         <div className="text-sm text-muted">Password login: {data.auth.passwordLoginEnabled ? 'Enabled' : 'Disabled'}</div>
         <div className="text-sm text-muted">Session TTL: {data.auth.sessionTtlDays} days</div>
         <div className="text-sm text-muted">Self-service registration: {data.auth.registrationEnabled ? 'Enabled' : 'Disabled'}</div>
+        <div className="text-sm text-muted">Password recovery: {data.auth.passwordRecoveryEnabled ? 'Enabled' : 'Disabled'}</div>
         <div className="text-sm text-muted">Public URL: {data.publicUrl || '(not set, using request host)'}</div>
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button onClick={() => toggleRegistration(true)} disabled={isSaving || data.auth.registrationEnabled} className="px-3 py-2 rounded-lg border border-border bg-card text-main hover:bg-surface disabled:opacity-50">Enable Signups</button>

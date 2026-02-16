@@ -21,6 +21,7 @@ import {
   requirePasswordFresh,
   getCurrentUser,
   changePassword,
+  isPasswordRecoveryEnabled,
 } from './auth.js';
 import { listOAuthProviders, getOAuthDiagnostics, startOAuth, handleOAuthCallback } from './oauth.js';
 import { getUserAiSettings, saveUserAiSettings } from './userSettings.js';
@@ -33,10 +34,67 @@ import {
   saveMonetizationConfig,
   setUserTierByAdmin,
 } from './monetization.js';
+import { buildAccountBackup, restoreAccountBackup } from './accountBackup.js';
 
 export const app = express();
-app.use(cors());
+
+function parseOrigin(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
+function getAllowedCorsOrigins() {
+  const origins = new Set();
+
+  const configured = String(process.env.BEWRITTEN_CORS_ORIGINS || '')
+    .split(',')
+    .map((v) => parseOrigin(v))
+    .filter(Boolean);
+  configured.forEach((origin) => origins.add(origin));
+
+  const publicOrigin = parseOrigin(process.env.BEWRITTEN_PUBLIC_URL || '');
+  if (publicOrigin) origins.add(publicOrigin);
+
+  if (process.env.NODE_ENV !== 'production') {
+    ['http://localhost:3000', 'http://localhost:4173', 'http://localhost:5173'].forEach((origin) => origins.add(origin));
+  }
+
+  return origins;
+}
+
+const allowedCorsOrigins = getAllowedCorsOrigins();
+if (allowedCorsOrigins.size > 0) {
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedCorsOrigins.has(origin)) return callback(null, true);
+        return callback(null, false);
+      },
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      maxAge: 86400,
+    })
+  );
+}
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false }));
 
 export let adminBootstrap = { email: 'pending', created: false };
 
@@ -55,7 +113,9 @@ export async function initApp() {
       const session = await loginAndIssueSession(email, password);
       return res.json(session);
     } catch (error) {
-      return res.status(401).json({ error: String(error.message || error) });
+      const message = String(error?.message || error || 'Login failed');
+      const isBackoff = message.toLowerCase().includes('too many login attempts') || message.toLowerCase().includes('try again in');
+      return res.status(isBackoff ? 429 : 401).json({ error: message });
     }
   });
 
@@ -96,6 +156,20 @@ export async function initApp() {
     }
   });
 
+  app.post('/api/auth/password-recovery/request', async (_req, res) => {
+    if (!isPasswordRecoveryEnabled()) {
+      return res.status(503).json({ error: 'Password recovery is disabled. Contact your administrator.' });
+    }
+    return res.status(501).json({ error: 'Password recovery email flow is not implemented yet.' });
+  });
+
+  app.post('/api/auth/password-recovery/reset', async (_req, res) => {
+    if (!isPasswordRecoveryEnabled()) {
+      return res.status(503).json({ error: 'Password recovery is disabled. Contact your administrator.' });
+    }
+    return res.status(501).json({ error: 'Password recovery email flow is not implemented yet.' });
+  });
+
   app.get('/api/user/settings', requireAuth, async (req, res) => {
     try {
       const settings = await getUserAiSettings(req.auth.email);
@@ -125,6 +199,7 @@ export async function initApp() {
         passwordLoginEnabled: true,
         sessionTtlDays: getSessionTtlDays(),
         registrationEnabled: await getRegistrationEnabled(),
+        passwordRecoveryEnabled: isPasswordRecoveryEnabled(),
       },
       monetization: await getMonetizationConfig(),
       monetizationDefaults: getMonetizationDefaults(),
@@ -270,6 +345,29 @@ export async function initApp() {
     } catch (error) {
       if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
       return res.status(500).json({ error: String(error?.message || 'Failed to delete story') });
+    }
+  });
+
+  app.get('/api/account/backup', requireAuth, requirePasswordFresh, async (req, res) => {
+    try {
+      const backup = await buildAccountBackup(req.auth.email);
+      return res.json({ backup });
+    } catch (error) {
+      return res.status(500).json({ error: String(error?.message || 'Failed to build backup') });
+    }
+  });
+
+  app.post('/api/account/restore', requireAuth, requirePasswordFresh, async (req, res) => {
+    try {
+      const backup = req.body?.backup;
+      const mode = String(req.body?.mode || 'merge').toLowerCase() === 'replace' ? 'replace' : 'merge';
+      const result = await withTransientLock(`account-restore:${req.auth.email}`, 30000, async () =>
+        restoreAccountBackup(req.auth.email, backup, mode)
+      );
+      return res.json({ ok: true, result });
+    } catch (error) {
+      if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
+      return res.status(400).json({ error: String(error?.message || 'Failed to restore backup') });
     }
   });
 

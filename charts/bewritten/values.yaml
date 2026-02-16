@@ -49,9 +49,20 @@ tolerations: []
 
 # Environment variables for the application
 env:
+  # Development defaults only. Override via secret refs for production.
   BEWRITTEN_ADMIN_EMAIL: "admin@example.com"
   BEWRITTEN_ADMIN_PASSWORD: "ChangeMeNow123!"
   BEWRITTEN_SECRET_KEY: "change-this-to-a-secure-random-string"
+  # If empty, chart can derive from ingress host when enabled.
+  BEWRITTEN_PUBLIC_URL: ""
+  # Comma-separated origin list. If empty, BEWRITTEN_PUBLIC_URL origin is used.
+  BEWRITTEN_CORS_ORIGINS: ""
+  # Optional extra trusted OAuth postMessage origins (comma-separated).
+  BEWRITTEN_OAUTH_ALLOWED_ORIGINS: ""
+  BEWRITTEN_PASSWORD_RECOVERY_ENABLED: "false"
+  BEWRITTEN_LOGIN_BACKOFF_BASE_SECONDS: "2"
+  BEWRITTEN_LOGIN_BACKOFF_MAX_SECONDS: "300"
+  BEWRITTEN_LOGIN_FAILURE_RESET_WINDOW_SECONDS: "3600"
   # DB connection details will be auto-generated if postgresql is enabled
   BEWRITTEN_AI_RATE_WINDOW_SECONDS: "20"
   BEWRITTEN_AI_RATE_MAX: "8"
@@ -68,6 +79,18 @@ redis:
   url: ""
   # Optional auth for bundled redis. If set, app URL will include it.
   password: ""
+
+secrets:
+  # If set, use this existing secret and skip generating one.
+  existingSecret: ""
+  # If true and existingSecret is empty, chart creates "<release>-bewritten-app-secrets".
+  create: true
+  keys:
+    adminEmail: "BEWRITTEN_ADMIN_EMAIL"
+    adminPassword: "BEWRITTEN_ADMIN_PASSWORD"
+    appSecretKey: "BEWRITTEN_SECRET_KEY"
+    dbPassword: "DB_PASSWORD"
+    redisPassword: "BEWRITTEN_REDIS_PASSWORD"
 
 postgres:
   enabled: true

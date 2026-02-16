@@ -162,6 +162,36 @@ describe('API Tests', () => {
     expect(res.body.story.title).toBe('My Epic Tale Updated');
   });
 
+  test('Export and Restore Account Backup', async () => {
+    const exportRes = await request(app)
+      .get('/api/account/backup')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(exportRes.statusCode).toBe(200);
+    expect(exportRes.body.backup.format).toBe('bewritten.account-backup');
+    expect(Array.isArray(exportRes.body.backup.payload.stories)).toBe(true);
+    expect(exportRes.body.backup.payload.stories.length).toBeGreaterThan(0);
+
+    const delRes = await request(app)
+      .delete('/api/stories/story-1')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(delRes.statusCode).toBe(200);
+    expect(delRes.body.deleted).toBe(true);
+
+    const restoreRes = await request(app)
+      .post('/api/account/restore')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ backup: exportRes.body.backup, mode: 'replace' });
+    expect(restoreRes.statusCode).toBe(200);
+    expect(restoreRes.body.result.mode).toBe('replace');
+
+    const listRes = await request(app)
+      .get('/api/stories')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(listRes.statusCode).toBe(200);
+    expect(listRes.body.stories).toHaveLength(1);
+    expect(listRes.body.stories[0].id).toBe('story-1');
+  });
+
   test('Delete Story', async () => {
     const res = await request(app)
       .delete('/api/stories/story-1')

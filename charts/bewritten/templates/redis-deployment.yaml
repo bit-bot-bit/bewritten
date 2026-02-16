@@ -1,4 +1,5 @@
 {{- if and .Values.redis.enabled (not .Values.redis.url) -}}
+{{- $appSecretName := .Values.secrets.existingSecret | default (printf "%s-app-secrets" (include "bewritten.fullname" .)) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,13 +28,15 @@ spec:
               containerPort: {{ .Values.redis.service.port }}
               protocol: TCP
           {{- if .Values.redis.password }}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.redisPassword | quote }}
           command:
-            - redis-server
-            - "--appendonly"
-            - "no"
-            - "--save"
-            - ""
-            - "--requirepass"
-            - "{{ .Values.redis.password }}"
+            - sh
+            - -c
+            - 'exec redis-server --appendonly no --save "" --requirepass "$REDIS_PASSWORD"'
           {{- end }}
 {{- end }}
