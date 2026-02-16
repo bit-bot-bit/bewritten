@@ -2,7 +2,16 @@ import React from 'react';
 import { BookOpen, Users, Map, Activity, Feather, Library, Palette, LogOut, Settings } from 'lucide-react';
 import { AppTab } from '../types';
 
-export const Sidebar = ({ activeTab, onTabChange, onThemeChange, onLogout }) => {
+interface SidebarProps {
+  activeTab: AppTab;
+  onTabChange: (tab: AppTab) => void;
+  onThemeChange: () => void;
+  onLogout: () => void;
+  isMobile?: boolean;
+  userRole?: string;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThemeChange, onLogout, isMobile = false }) => {
   const navItems = [
     { id: AppTab.WRITE, label: 'Write', icon: Feather },
     { id: AppTab.CHARACTERS, label: 'Characters', icon: Users },
@@ -12,6 +21,55 @@ export const Sidebar = ({ activeTab, onTabChange, onThemeChange, onLogout }) => 
   ];
 
   const isStoriesTab = activeTab === AppTab.STORIES;
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="fixed top-2 left-3 z-30 text-accent bg-surface border border-border rounded-xl p-2">
+          <BookOpen size={22} />
+        </div>
+
+        <div className="fixed top-2 right-3 z-30 flex items-center gap-2">
+          <button onClick={onThemeChange} className="p-2 rounded-xl text-muted hover:text-accent bg-surface border border-border transition-colors" title="Switch Theme">
+            <Palette size={18} />
+          </button>
+          <button onClick={onLogout} className="p-2 rounded-xl text-muted hover:text-red-400 bg-surface border border-border transition-colors" title="Sign Out">
+            <LogOut size={18} />
+          </button>
+        </div>
+
+        <nav className="fixed bottom-0 left-0 right-0 z-30 bg-surface border-t border-border grid grid-cols-6 px-1 py-1">
+          <button
+            onClick={() => onTabChange(AppTab.STORIES)}
+            aria-pressed={activeTab === AppTab.STORIES}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
+              activeTab === AppTab.STORIES ? 'text-accent bg-accent/10 border border-accent/40' : 'text-muted'
+            }`}
+          >
+            <Library size={16} />
+            <span className="leading-none">Stories</span>
+          </button>
+          {navItems.map((item) => {
+            const shouldDisable = isStoriesTab && item.id !== AppTab.SETTINGS;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                aria-pressed={activeTab === item.id}
+                disabled={shouldDisable}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
+                  activeTab === item.id ? 'text-accent bg-accent/10 border border-accent/40' : shouldDisable ? 'text-muted opacity-30' : 'text-muted'
+                }`}
+              >
+                <item.icon size={16} />
+                <span className="leading-none whitespace-nowrap">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </>
+    );
+  }
 
   return (
     <div className="w-20 bg-surface border-r border-border flex flex-col items-center py-6 gap-6 h-screen sticky top-0 z-20">

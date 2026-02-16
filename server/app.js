@@ -237,10 +237,57 @@ export async function initApp() {
       return res.json(data);
     } catch (error) {
       await recordAiRun({ storyId, actorEmail, task, status: 'failed', errorMessage: String(error) });
-      const message = error instanceof Error ? error.message : String(error || 'AI request failed');
+      const rawMessage = error instanceof Error ? error.message : String(error || 'AI request failed');
+      const lower = rawMessage.toLowerCase();
+      const message =
+        lower.includes('resource_exhausted') ||
+        lower.includes('rate') ||
+        lower.includes('quota') ||
+        lower.includes('too many requests') ||
+        lower.includes('429')
+          ? 'AI is currently busy. You are trying too much right now, please try again shortly.'
+          : rawMessage;
       return res.status(500).json({ error: message });
     }
   }
+
+  const normalizePlotPoints = (points = []) =>
+    (Array.isArray(points) ? points : [])
+      .map((p) => ({
+        title: String(p?.title || '').trim() || 'Untitled Event',
+        description: String(p?.description || '').trim(),
+        tensionLevel: Math.max(1, Math.min(10, Number(p?.tensionLevel || 5))),
+      }))
+      .filter((p) => p.title || p.description);
+
+  const buildConsensus = (runs = []) => {
+    const normalizedRuns = runs.map((run) => normalizePlotPoints(run));
+    const maxLen = Math.max(0, ...normalizedRuns.map((r) => r.length));
+    const consensus = [];
+
+    for (let i = 0; i < maxLen; i += 1) {
+      const slice = normalizedRuns.map((r) => r[i]).filter(Boolean);
+      if (slice.length === 0) continue;
+
+      const avgTension = Math.round(slice.reduce((sum, p) => sum + p.tensionLevel, 0) / slice.length);
+      const titleVotes = new Map();
+      for (const p of slice) {
+        const key = p.title.toLowerCase();
+        titleVotes.set(key, (titleVotes.get(key) || 0) + 1);
+      }
+      const winningTitleKey = [...titleVotes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+      const winningTitle = slice.find((p) => p.title.toLowerCase() === winningTitleKey)?.title || slice[0].title;
+      const winningDescription = slice.find((p) => p.description)?.description || '';
+
+      consensus.push({
+        title: winningTitle,
+        description: winningDescription,
+        tensionLevel: avgTension,
+      });
+    }
+
+    return consensus;
+  };
 
   app.post('/api/ai/continuity', requireAuth, requirePasswordFresh, (req, res) =>
     handleAi(req, res, 'continuity', async () => {
@@ -300,6 +347,38 @@ export async function initApp() {
       const prompt = `Extract plot points from text:${String(req.body?.text || '').slice(0, 30000)}`;
       const plotPoints = await runJsonPrompt({ prompt, schema: Schema.plotList, fallback: [], actorEmail: req.auth.email });
       return { plotPoints };
+    })
+  );
+
+  app.post('/api/ai/plot-consensus', requireAuth, requirePasswordFresh, (req, res) =>
+    handleAi(req, res, 'plot-consensus', async () => {
+      const text = String(req.body?.text || '').slice(0, 35000);
+      const existingPlotPoints = normalizePlotPoints(req.body?.existingPlotPoints || []);
+      const chapterTitle = String(req.body?.chapterTitle || 'Current Chapter');
+      if (!text.trim()) return { runs: [[], [], []], consensus: [] };
+
+      const run1Prompt = `Analyze this chapter and return estimated plot beats with tensionLevel 1-10.\nChapter:${chapterTitle}\nText:${text}`;
+      const run1 = normalizePlotPoints(
+        await runJsonPrompt({ prompt: run1Prompt, schema: Schema.plotList, fallback: [], actorEmail: req.auth.email })
+      );
+
+      const sharedContext = JSON.stringify(existingPlotPoints.slice(0, 40));
+      const run1Context = JSON.stringify(run1.slice(0, 40));
+      const run2Prompt = `Fresh pass. Estimate plot beats and tension for this chapter using story context.\nExisting Plot Context:${sharedContext}\nFirst Pass:${run1Context}\nChapter:${chapterTitle}\nText:${text}`;
+      const run2 = normalizePlotPoints(
+        await runJsonPrompt({ prompt: run2Prompt, schema: Schema.plotList, fallback: [], actorEmail: req.auth.email })
+      );
+
+      const run2Context = JSON.stringify(run2.slice(0, 40));
+      const run3Prompt = `Fresh independent pass. Estimate plot beats and tension for this chapter with these references.\nExisting Plot Context:${sharedContext}\nFirst Pass:${run1Context}\nSecond Pass:${run2Context}\nChapter:${chapterTitle}\nText:${text}`;
+      const run3 = normalizePlotPoints(
+        await runJsonPrompt({ prompt: run3Prompt, schema: Schema.plotList, fallback: [], actorEmail: req.auth.email })
+      );
+
+      return {
+        runs: [run1, run2, run3],
+        consensus: buildConsensus([run1, run2, run3]),
+      };
     })
   );
 

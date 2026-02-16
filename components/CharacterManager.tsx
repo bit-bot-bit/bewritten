@@ -30,7 +30,10 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
       setCharacters([...characters, newCharacter]);
       setNewCharPrompt('');
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to generate character.';
+      const raw = e instanceof Error ? e.message : 'Failed to generate character.';
+      const message = String(raw).includes('400')
+        ? 'AI is currently busy. You are trying too much right now, please try again shortly.'
+        : raw;
       alert(message);
     } finally {
       setIsGenerating(false);
@@ -77,7 +80,10 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
       alert(`Scan complete. Found ${result.newCharacters.length} new characters and updated ${result.updates.length}.`);
 
       } catch (e) {
-          const message = e instanceof Error ? e.message : 'Failed to scan chapter.';
+          const raw = e instanceof Error ? e.message : 'Failed to scan chapter.';
+          const message = String(raw).includes('400')
+            ? 'AI is currently busy. You are trying too much right now, please try again shortly.'
+            : raw;
           alert(message);
       } finally {
           setIsScanning(false);

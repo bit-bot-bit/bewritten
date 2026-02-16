@@ -79,13 +79,21 @@ function createFreshStory(num = 1) {
 }
 
 const App = () => {
+  const detectMobile = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = String(window.navigator?.userAgent || '').toLowerCase();
+    const uaMobile = /android|iphone|ipad|ipod|mobile|blackberry|iemobile|opera mini/.test(ua);
+    return uaMobile || window.innerWidth < 900;
+  };
+
   const [user, setUser] = useState(null);
   const [stories, setStories] = useState([]);
   const [activeStoryId, setActiveStoryId] = useState('');
   const [activeTab, setActiveTab] = useState(AppTab.STORIES);
   const [currentThemeId, setCurrentThemeId] = useState('nexus');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [showToolChapters, setShowToolChapters] = useState(true);
+  const [isMobile, setIsMobile] = useState(detectMobile);
+  const [showToolChapters, setShowToolChapters] = useState(() => !detectMobile());
 
   const activeStory = useMemo(() => stories.find((s) => s.id === activeStoryId) || stories[0] || null, [stories, activeStoryId]);
 
@@ -105,6 +113,12 @@ const App = () => {
   useEffect(() => {
     applyTheme(currentThemeId);
   }, [currentThemeId]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(detectMobile());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const refreshStories = async () => {
     const rows = await listStories();
@@ -235,6 +249,7 @@ const App = () => {
         onSelectChapter={(chapterId) => updateCurrentStory((s) => ({ ...s, currentChapterId: chapterId }))}
         showChapters={showToolChapters}
         onToggle={() => setShowToolChapters((v) => !v)}
+        isMobile={isMobile}
       />
       <div className="flex-1 min-w-0">{content}</div>
     </div>
@@ -242,9 +257,9 @@ const App = () => {
 
   return (
     <div className="h-screen w-screen bg-background text-main flex overflow-hidden">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} isMobile={isMobile} />
 
-      <main className="flex-1 relative">
+      <main className={`flex-1 relative ${isMobile ? 'pt-14 pb-20' : ''}`}>
         {activeTab === AppTab.STORIES && (
           <StoryList
             stories={stories}
@@ -286,6 +301,7 @@ const App = () => {
               characters={activeStory.characters}
               currentChapter={activeChapter}
               currentTheme={currentTheme}
+              chapters={activeStory.chapters}
             />
           )
         )}
@@ -293,7 +309,7 @@ const App = () => {
         {activeTab === AppTab.SETTINGS && <SettingsPage isAdmin={user.role === 'admin'} />}
       </main>
 
-      {activeTab !== AppTab.STORIES && activeTab !== AppTab.SETTINGS && <AIAssistant storyState={activeStory} />}
+      {activeTab !== AppTab.STORIES && activeTab !== AppTab.SETTINGS && <AIAssistant storyState={activeStory} isMobile={isMobile} />}
     </div>
   );
 };
