@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { checkContinuity } from '../services/geminiService';
 import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye } from 'lucide-react';
 import { ExportModal } from './ExportModal';
@@ -113,9 +113,12 @@ function paginateContent(content, format) {
 }
 
 export const Editor = ({ storyState, setStoryState }) => {
+  const detectMobile = () => (typeof window !== 'undefined' ? window.innerWidth < 900 : false);
   const [analysis, setAnalysis] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showChapters, setShowChapters] = useState(true);
+  const [isMobile, setIsMobile] = useState(detectMobile);
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
+  const [showChapters, setShowChapters] = useState(() => !detectMobile());
   const [showExport, setShowExport] = useState(false);
   const [chapterToDelete, setChapterToDelete] = useState(null);
   const [viewMode, setViewMode] = useState('edit');
@@ -124,6 +127,28 @@ export const Editor = ({ storyState, setStoryState }) => {
   const currentChapter = storyState.chapters.find((c) => c.id === storyState.currentChapterId) || storyState.chapters[0];
   const previewLayout = PREVIEW_LAYOUT_BY_FORMAT[selectedFormat.id] ?? { marginPx: 96, marginCss: '1in' };
   const pagedContent = useMemo(() => paginateContent(currentChapter.content, selectedFormat), [currentChapter.content, selectedFormat]);
+  const pageWidthPx = widthToPx(selectedFormat.width);
+  const maxPreviewWidth = Math.max(180, viewportWidth - (isMobile ? 72 : 120));
+  const previewScale = Math.min(1, maxPreviewWidth / pageWidthPx);
+
+  useEffect(() => {
+    const onResize = () => {
+      setIsMobile(detectMobile());
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) setShowChapters(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile && viewMode === 'page' && showChapters) {
+      setShowChapters(false);
+    }
+  }, [isMobile, viewMode, showChapters]);
 
   const updateContent = (newContent) => {
     setStoryState((prev) => ({
@@ -190,7 +215,16 @@ export const Editor = ({ storyState, setStoryState }) => {
         message={`Are you sure you want to delete "${storyState.chapters.find((c) => c.id === chapterToDelete)?.title || ''}"?`}
       />
 
-      <div className={`${showChapters ? 'w-64' : 'w-0'} bg-surface border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}>
+      {isMobile && showChapters && <button onClick={() => setShowChapters(false)} className="absolute inset-0 bg-black/30 z-20" aria-label="Close chapters" />}
+      <div
+        className={`${
+          isMobile
+            ? `absolute inset-y-0 left-0 z-30 w-64 max-w-[85vw] transform ${showChapters ? 'translate-x-0' : '-translate-x-full'}`
+            : showChapters
+              ? 'w-64'
+              : 'w-0'
+        } bg-surface border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}
+      >
         <div className="p-4 flex items-center justify-between bg-card/50">
           <span className="font-semibold text-muted text-sm uppercase tracking-wide">Chapters</span>
           <button onClick={addChapter} className="text-muted hover:text-main"><Plus size={18} /></button>
@@ -214,7 +248,7 @@ export const Editor = ({ storyState, setStoryState }) => {
         </div>
       </div>
 
-      <button onClick={() => setShowChapters(!showChapters)} className="absolute left-0 top-1/2 -translate-y-1/2 bg-card p-1 rounded-r border-y border-r border-border text-muted hover:text-main z-10" style={{ left: showChapters ? '16rem' : '0' }}>
+      <button onClick={() => setShowChapters(!showChapters)} className="absolute left-0 top-1/2 -translate-y-1/2 bg-card p-1 rounded-r border-y border-r border-border text-muted hover:text-main z-30" style={{ left: !isMobile && showChapters ? '16rem' : '0' }}>
         {showChapters ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
 
@@ -253,34 +287,48 @@ export const Editor = ({ storyState, setStoryState }) => {
             <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} onKeyDown={handleEditorKeyDown} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={false} />
           </div>
         ) : (
-          <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto p-4 md:p-8 flex flex-col items-center">
-            <div className="mb-6 flex gap-3 items-center bg-card p-2 rounded-xl border border-border">
-              <span className="text-xs font-bold text-muted uppercase px-2">Book Size:</span>
-              {BOOK_FORMATS.map((fmt) => (
-                <button
-                  key={fmt.id}
-                  onClick={() => setSelectedFormat(fmt)}
-                  aria-pressed={selectedFormat.id === fmt.id}
-                  className={`text-xs px-3 py-1.5 rounded-md border transition-all ${selectedFormat.id === fmt.id ? 'border-accent shadow-md ring-2 ring-accent/50 font-semibold -translate-y-px' : 'bg-surface/40 text-main border-border hover:bg-surface font-medium'}`}
-                  style={selectedFormat.id === fmt.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
-                >
-                  {fmt.name}
-                </button>
-              ))}
+          <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto overflow-x-hidden p-3 md:p-8 flex flex-col items-center">
+            <div className="mb-6 w-full overflow-x-auto pb-1">
+              <div className="flex gap-2 items-center bg-card p-2 rounded-xl border border-border min-w-max">
+                <span className="text-xs font-bold text-muted uppercase px-2">Book Size:</span>
+                {BOOK_FORMATS.map((fmt) => (
+                  <button
+                    key={fmt.id}
+                    onClick={() => setSelectedFormat(fmt)}
+                    aria-pressed={selectedFormat.id === fmt.id}
+                    className={`text-xs px-3 py-1.5 rounded-md border transition-all ${selectedFormat.id === fmt.id ? 'border-accent shadow-md ring-2 ring-accent/50 font-semibold -translate-y-px' : 'bg-surface/40 text-main border-border hover:bg-surface font-medium'}`}
+                    style={selectedFormat.id === fmt.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
+                  >
+                    {fmt.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mb-4 self-center text-center text-xs rounded px-2 py-1 border" style={{ color: 'var(--color-text-main)', backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
               Showing simulated pagination for {selectedFormat.name}
             </div>
 
-            <div className="w-full flex flex-col items-center gap-8">
+            <div className="w-full flex flex-col items-center gap-8 overflow-x-hidden">
               {pagedContent.map((page, idx) => (
                 <div key={`page-${idx}`} className="flex flex-col items-center gap-2">
-                  <div className="bg-white text-black shadow-2xl overflow-hidden" style={{ width: selectedFormat.width, height: `${selectedFormat.heightPx}px`, boxSizing: 'border-box' }}>
+                  <div
+                    className="bg-white text-black shadow-2xl overflow-hidden"
+                    style={{
+                      width: `${Math.round(pageWidthPx * previewScale)}px`,
+                      height: `${Math.round(selectedFormat.heightPx * previewScale)}px`,
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                    }}
+                  >
                     <div
                       className="w-full h-full font-serif whitespace-pre-wrap break-words"
                       style={{
                         boxSizing: 'border-box',
+                        width: selectedFormat.width,
+                        height: `${selectedFormat.heightPx}px`,
+                        transform: `scale(${previewScale})`,
+                        transformOrigin: 'top left',
                         padding: previewLayout.marginCss,
                         fontSize: `${PREVIEW_FONT_PX}px`,
                         lineHeight: PREVIEW_LINE_HEIGHT,

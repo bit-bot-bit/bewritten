@@ -49,9 +49,18 @@ The following table lists the configurable parameters of the Bewritten chart and
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `replicaCount` | Number of replicas | `1` |
+| `replicaCount` | Number of replicas | `2` |
+| `autoscaling.enabled` | Enable HPA for app pods | `false` |
+| `autoscaling.minReplicas` | Minimum app replicas for HPA | `2` |
+| `autoscaling.maxReplicas` | Maximum app replicas for HPA | `6` |
+| `pdb.enabled` | Enable PodDisruptionBudget | `true` |
+| `pdb.minAvailable` | Minimum available app pods during voluntary disruptions | `1` |
+| `affinity` | Pod affinity/anti-affinity overrides | `{}` |
+| `topologySpreadConstraints` | Topology spread constraints overrides | `[]` |
+| `nodeSelector` | Node selector for app pods | `{}` |
+| `tolerations` | Tolerations for app pods | `[]` |
 | `image.repository` | Image repository | `ghcr.io/bit-bot-bit/bewritten` |
-| `image.tag` | Image tag (defaults to chart AppVersion) | `""` |
+| `image.tag` | Image tag (defaults to chart AppVersion if omitted) | `"0.1.20"` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `service.type` | Kubernetes Service type | `ClusterIP` |
 | `service.port` | Service port | `80` |
@@ -60,12 +69,14 @@ The following table lists the configurable parameters of the Bewritten chart and
 | `env.BEWRITTEN_ADMIN_EMAIL` | Admin email address | `admin@example.com` |
 | `env.BEWRITTEN_ADMIN_PASSWORD` | Admin password | `ChangeMeNow123!` |
 | `env.BEWRITTEN_SECRET_KEY` | App secret key (change in prod!) | `change-this-to-a-secure-random-string` |
-| `postgresql.enabled` | Deploy PostgreSQL dependency | `true` |
-| `postgresql.auth.username` | Database username | `bewritten` |
-| `postgresql.auth.password` | Database password | `bewrittenpassword` |
-| `postgresql.auth.database` | Database name | `bewritten` |
-| `postgresql.primary.persistence.enabled` | Enable DB persistence | `true` |
-| `postgresql.primary.persistence.size` | DB Volume size | `1Gi` |
+| `postgres.enabled` | Deploy bundled PostgreSQL (single instance) | `true` |
+| `postgres.auth.username` | Database username | `bewritten` |
+| `postgres.auth.password` | Database password | `bewrittenpassword` |
+| `postgres.auth.database` | Database name | `bewritten` |
+| `postgres.persistence.enabled` | Enable DB persistence | `true` |
+| `postgres.persistence.size` | DB Volume size | `1Gi` |
+
+Note: The bundled chart PostgreSQL is a single StatefulSet replica. For full HA in production, use an external HA PostgreSQL service and disable `postgres.enabled`.
 
 To override values during installation:
 

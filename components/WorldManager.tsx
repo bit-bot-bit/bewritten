@@ -86,8 +86,8 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
   const getChapterName = (id: string) => chapters.find(c => c.id === id)?.title || 'Unknown Chapter';
 
   return (
-    <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto">
-      <div className="flex justify-between items-end mb-8">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
         <div>
            <h2 className="text-3xl font-bold text-main">World Building</h2>
            <p className="text-muted mt-2">Map out locations. Track events per chapter.</p>
@@ -95,14 +95,14 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
         <button 
             onClick={handleScanChapter}
             disabled={isScanning}
-            className="bg-accent-dim border border-accent/50 hover:bg-accent/20 text-accent px-4 py-2 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50"
+            className="bg-accent-dim border border-accent/50 hover:bg-accent/20 text-accent px-4 py-2 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 w-full md:w-auto"
         >
             {isScanning ? <Loader2 size={18} className="animate-spin" /> : <ScanSearch size={18} />}
             Scan Events in "{currentChapter.title}"
         </button>
       </div>
 
-      <div className="flex gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <input
           type="text"
           value={newLocName}
@@ -114,7 +114,7 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
         />
         <button
           onClick={addLocation}
-          className="bg-accent hover:brightness-110 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2"
+          className="bg-accent hover:brightness-110 text-white px-6 py-3 rounded-xl font-medium flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           <Plus size={18} />
           Add Location
@@ -124,17 +124,17 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
       <div className="space-y-4">
         {visibleLocations.map(loc => (
           <div key={loc.id} className="bg-card border border-border rounded-xl p-6">
-            <div className="flex gap-6 mb-6">
+            <div className="flex flex-col md:flex-row gap-6 mb-6">
                 <div className="bg-surface w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 text-accent">
                 <MapPin size={24} />
                 </div>
                 
                 <div className="flex-1 space-y-4">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-2">
                     <input 
                         value={loc.name}
                         onChange={(e) => updateLocation(loc.id, 'name', e.target.value)}
-                        className="themed-control text-xl font-bold border-b border-transparent hover:border-border focus:border-accent outline-none px-2 py-1 rounded"
+                        className="themed-control text-xl font-bold border-b border-transparent hover:border-border focus:border-accent outline-none px-2 py-1 rounded w-full min-w-0"
                         style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                     />
                     <button 
@@ -178,11 +178,11 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
                 ) : (
                     <div className="space-y-3">
                         {loc.history.map((evt, idx) => (
-                            <div key={idx} className="flex gap-3 text-sm">
+                            <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:gap-3 text-sm">
                                 <span className="text-accent whitespace-nowrap text-xs font-mono py-1 px-2 bg-accent-dim rounded h-fit">
                                     {getChapterName(evt.chapterId)}
                                 </span>
-                                <p className="text-main opacity-90">{evt.description}</p>
+                                <p className="text-main opacity-90 break-words">{evt.description}</p>
                             </div>
                         ))}
                     </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PlotPoint, Character, Chapter, Theme } from '../types';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Plus, Trash2, Zap, ScanSearch, Loader2, BrainCircuit, Layers3 } from 'lucide-react';
 import { suggestNextPlotPoint, extractPlotPointsFromText, estimatePlotConsensus } from '../services/geminiService';
 
@@ -154,16 +154,14 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
   const chartData = hasEstimate
     ? estimatePoints.map((p, index) => ({
         index: index + 1,
-        label: p.title?.slice(0, 20) || `Beat ${index + 1}`,
         tension: clampTension(p.tensionLevel),
         title: p.title || `Beat ${index + 1}`,
       }))
     : listPoints.map((p, index) => ({
-    index: index + 1,
-    label: p.title?.slice(0, 20) || `Point ${index + 1}`,
-    tension: p.tensionLevel,
-    title: p.title
-  }));
+        index: index + 1,
+        tension: p.tensionLevel,
+        title: p.title,
+      }));
 
   // Use accent color from theme for chart
   const accentColor = currentTheme.colors.accent;
@@ -172,15 +170,15 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
   const tooltipBg = currentTheme.colors.card;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col lg:flex-row h-full overflow-x-hidden">
         {/* Left: List */}
-        <div className="w-1/2 p-8 overflow-y-auto border-r border-border">
-            <div className="flex justify-between items-center mb-6">
+        <div className="w-full lg:w-1/2 p-4 md:p-8 overflow-y-auto border-b lg:border-b-0 lg:border-r border-border">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
                 <div>
                     <h2 className="text-2xl font-bold text-main">Plot Outline</h2>
                     <p className="text-xs text-muted mt-1">Events extracted from story or added manually</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <button 
                         onClick={handleScan} 
                         disabled={isScanning}
@@ -238,10 +236,10 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
         </div>
 
         {/* Right: Visualization */}
-        <div className="w-1/2 p-8 bg-surface/50 flex flex-col">
-            <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="w-full lg:w-1/2 p-4 md:p-8 bg-surface/50 flex flex-col">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="text-xl font-bold text-main">Tension Arc</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => runEstimate('chapter')}
                   disabled={isEstimating}
@@ -279,27 +277,35 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
               </span>
             </div>
 
-            <div className="flex-1 min-h-[300px] w-full bg-card/20 rounded-2xl border border-border p-4">
+            <div className="flex-1 min-h-[260px] md:min-h-[300px] w-full bg-card/20 rounded-2xl border border-border p-3 md:p-4">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis dataKey="label" stroke={textColor} interval={0} angle={-25} textAnchor="end" height={60} />
-                        <YAxis stroke={textColor} domain={[0, 10]} />
+                        <XAxis
+                            dataKey="index"
+                            stroke={textColor}
+                            interval={0}
+                            height={42}
+                            label={{ value: 'Plot Point', position: 'insideBottom', offset: -4, fill: textColor }}
+                        />
+                        <YAxis
+                            stroke={textColor}
+                            domain={[0, 10]}
+                            label={{ value: 'Tension', angle: -90, position: 'insideLeft', fill: textColor }}
+                        />
                         <Tooltip 
                             contentStyle={{ backgroundColor: tooltipBg, borderColor: gridColor, color: textColor }}
                             itemStyle={{ color: accentColor }}
                             formatter={(value, _name, payload) => [value, payload?.payload?.title || 'Tension']}
                         />
-                        <Line 
+                        <Line
                             type="monotone" 
                             dataKey="tension" 
                             stroke={accentColor} 
                             strokeWidth={3}
                             dot={{ fill: accentColor, strokeWidth: 2 }}
                             activeDot={{ r: 8 }}
-                        >
-                            <LabelList dataKey="index" position="top" fill={textColor} fontSize={10} />
-                        </Line>
+                        />
                     </LineChart>
                 </ResponsiveContainer>
             </div>

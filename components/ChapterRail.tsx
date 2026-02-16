@@ -19,12 +19,52 @@ export const ChapterRail: React.FC<ChapterRailProps> = ({
   onToggle,
   isMobile = false,
 }) => {
-  const railWidthClass = isMobile ? (showChapters ? 'w-44' : 'w-0') : showChapters ? 'w-64' : 'w-0';
-  const toggleLeft = isMobile ? '11rem' : '16rem';
+  if (isMobile) {
+    return (
+      <>
+        {showChapters && <button onClick={onToggle} className="absolute inset-0 bg-black/30 z-20" aria-label="Close chapter list" />}
+        <div
+          className={`absolute inset-y-0 left-0 z-30 w-64 max-w-[85vw] bg-surface border-r border-border transition-transform duration-300 overflow-hidden flex flex-col ${
+            showChapters ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="p-4 flex items-center justify-between bg-card/50">
+            <span className="font-semibold text-muted text-sm uppercase tracking-wide">Chapters</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1 pb-24">
+            {chapters.map((chapter) => (
+              <button
+                key={chapter.id}
+                onClick={() => {
+                  onSelectChapter(chapter.id);
+                  onToggle();
+                }}
+                className={`w-full text-left flex items-center gap-2 p-3 rounded-lg text-sm transition-colors ${
+                  currentChapterId === chapter.id
+                    ? 'bg-accent-dim text-accent border border-accent/30'
+                    : 'text-muted hover:bg-card'
+                }`}
+              >
+                <FileText size={14} />
+                <span className="truncate">{chapter.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={onToggle}
+          className="absolute left-0 top-1/2 -translate-y-1/2 bg-card p-1 rounded-r border-y border-r border-border text-muted hover:text-main z-30"
+        >
+          {showChapters ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        </button>
+      </>
+    );
+  }
 
   return (
     <>
-      <div className={`${railWidthClass} bg-surface border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}>
+      <div className={`${showChapters ? 'w-64' : 'w-0'} bg-surface border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}>
         <div className="p-4 flex items-center justify-between bg-card/50">
           <span className="font-semibold text-muted text-sm uppercase tracking-wide">Chapters</span>
         </div>
@@ -49,7 +89,7 @@ export const ChapterRail: React.FC<ChapterRailProps> = ({
       <button
         onClick={onToggle}
         className="absolute left-0 top-1/2 -translate-y-1/2 bg-card p-1 rounded-r border-y border-r border-border text-muted hover:text-main z-10"
-        style={{ left: showChapters ? toggleLeft : '0' }}
+        style={{ left: showChapters ? '16rem' : '0' }}
       >
         {showChapters ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
