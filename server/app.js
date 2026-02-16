@@ -269,7 +269,8 @@ export async function initApp() {
       const slice = normalizedRuns.map((r) => r[i]).filter(Boolean);
       if (slice.length === 0) continue;
 
-      const avgTension = Math.round(slice.reduce((sum, p) => sum + p.tensionLevel, 0) / slice.length);
+      const avgTensionRaw = slice.reduce((sum, p) => sum + p.tensionLevel, 0) / slice.length;
+      const avgTension = Math.max(1, Math.min(10, Number(avgTensionRaw.toFixed(1))));
       const titleVotes = new Map();
       for (const p of slice) {
         const key = p.title.toLowerCase();

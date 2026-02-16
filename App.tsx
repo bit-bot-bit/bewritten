@@ -120,6 +120,10 @@ const App = () => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    if (isMobile) setShowToolChapters(false);
+  }, [isMobile]);
+
   const refreshStories = async () => {
     const rows = await listStories();
     if (!rows || rows.length === 0) {
@@ -294,7 +298,7 @@ const App = () => {
     <div className="h-screen w-screen bg-background text-main flex overflow-hidden">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} isMobile={isMobile} />
 
-      <main className={`flex-1 relative ${isMobile ? 'pt-14 pb-20' : ''}`}>
+      <main className={`flex-1 relative overflow-x-hidden ${isMobile ? 'pt-14 pb-20' : ''}`}>
         {activeTab === AppTab.STORIES && (
           <StoryList
             stories={stories}

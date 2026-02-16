@@ -79,7 +79,7 @@ export const AdminSettings = ({ compact = false }) => {
 
   if (isLoading) {
     return (
-      <div className={compact ? 'bg-card border border-border rounded-xl p-5' : 'p-8 max-w-5xl mx-auto h-full overflow-y-auto'}>
+      <div className={compact ? 'bg-card border border-border rounded-xl p-4 md:p-5 min-w-0' : 'p-8 max-w-5xl mx-auto h-full overflow-y-auto'}>
         <div className="text-muted">Loading admin settings...</div>
       </div>
     );
@@ -87,7 +87,7 @@ export const AdminSettings = ({ compact = false }) => {
 
   if (error || !data) {
     return (
-      <div className={compact ? 'bg-card border border-border rounded-xl p-5 space-y-4' : 'p-8 max-w-5xl mx-auto h-full overflow-y-auto space-y-4'}>
+      <div className={compact ? 'bg-card border border-border rounded-xl p-4 md:p-5 min-w-0 space-y-4' : 'p-8 max-w-5xl mx-auto h-full overflow-y-auto space-y-4'}>
         <h2 className="text-3xl font-bold text-main">Admin Settings</h2>
         <p className="text-red-400 text-sm">{error || 'Unable to load settings'}</p>
         <button onClick={() => load().catch(() => {})} className="px-4 py-2 rounded-lg bg-card border border-border text-main hover:bg-surface">Retry</button>
@@ -96,8 +96,8 @@ export const AdminSettings = ({ compact = false }) => {
   }
 
   return (
-    <div className={compact ? 'bg-card border border-border rounded-xl p-5 space-y-6' : 'p-8 max-w-5xl mx-auto h-full overflow-y-auto space-y-8'}>
-      <div className="flex items-start justify-between">
+    <div className={compact ? 'bg-card border border-border rounded-xl p-4 md:p-5 min-w-0 space-y-6' : 'p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto space-y-8'}>
+      <div className="flex flex-col md:flex-row items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-main">Admin Settings</h2>
           <p className="text-muted mt-2">Configure and validate authentication providers.</p>
@@ -118,7 +118,7 @@ export const AdminSettings = ({ compact = false }) => {
         <div className="text-sm text-muted">Session TTL: {data.auth.sessionTtlDays} days</div>
         <div className="text-sm text-muted">Self-service registration: {data.auth.registrationEnabled ? 'Enabled' : 'Disabled'}</div>
         <div className="text-sm text-muted">Public URL: {data.publicUrl || '(not set, using request host)'}</div>
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           <button onClick={() => toggleRegistration(true)} disabled={isSaving || data.auth.registrationEnabled} className="px-3 py-2 rounded-lg border border-border bg-card text-main hover:bg-surface disabled:opacity-50">Enable Signups</button>
           <button onClick={() => toggleRegistration(false)} disabled={isSaving || !data.auth.registrationEnabled} className="px-3 py-2 rounded-lg border border-border bg-card text-main hover:bg-surface disabled:opacity-50">Lock Signups</button>
         </div>
@@ -126,7 +126,7 @@ export const AdminSettings = ({ compact = false }) => {
 
       <div className="space-y-3">
         <h3 className="text-xl font-bold text-main">Users</h3>
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs uppercase tracking-wide text-muted border-b border-border">
             <div className="col-span-4">Email</div><div className="col-span-2">Role</div><div className="col-span-2">Status</div><div className="col-span-2">Last Seen</div><div className="col-span-2 text-right">Actions</div>
           </div>
@@ -141,6 +141,25 @@ export const AdminSettings = ({ compact = false }) => {
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={14} /> : <Lock size={14} />}</button>
                 <button onClick={() => resetPassword(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-amber-700/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40" title="Reset password and force change on login"><KeyRound size={14} /></button>
                 <button onClick={() => deleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40" title="Delete user"><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="md:hidden space-y-3">
+          {data.users.map((u) => (
+            <div key={u.email} className="bg-card border border-border rounded-xl p-3 space-y-2">
+              <div className="font-mono text-main text-sm break-all">{u.email}</div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className={`px-2 py-1 rounded border ${u.role === 'admin' ? 'border-accent text-accent bg-accent/10' : 'border-border text-muted bg-surface'}`}>{u.role}</span>
+                <span className="text-muted">{u.locked ? 'Locked' : 'Active'}{u.mustChangePassword ? ' · Reset Required' : ''}</span>
+              </div>
+              <div className="text-xs text-muted">Last Seen: {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={13} />Role</button>
+                <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={13} /> : <Lock size={13} />}Lock</button>
+                <button onClick={() => resetPassword(u.email)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-amber-700/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 text-xs flex items-center justify-center gap-1" title="Reset password and force change on login"><KeyRound size={13} />Reset</button>
+                <button onClick={() => deleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40 text-xs flex items-center justify-center gap-1" title="Delete user"><Trash2 size={13} />Delete</button>
               </div>
             </div>
           ))}

@@ -20,7 +20,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const getStoryTitle = (id) => stories.find((s) => s.id === id)?.title || 'Story';
 
   return (
-    <div className="p-12 max-w-6xl mx-auto h-full overflow-y-auto">
+    <div className="p-4 md:p-12 max-w-6xl mx-auto h-full overflow-y-auto overflow-x-hidden">
       <ConfirmationModal
         isOpen={!!storyToDelete}
         onClose={() => setStoryToDelete(null)}
@@ -29,19 +29,19 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
         message={`Are you sure you want to delete "${storyToDelete ? getStoryTitle(storyToDelete) : ''}"? This action cannot be undone.`}
       />
 
-      <div className="flex justify-between items-center mb-12">
-        <div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 md:mb-12">
+        <div className="w-full min-w-0">
           <h1 className="text-4xl font-serif font-bold text-main mb-3">My Stories</h1>
-          <div className="flex items-center gap-3">
-            <p className="text-muted">Manage your collection of worlds and narratives.</p>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold animate-pulse whitespace-nowrap">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 min-w-0">
+            <p className="text-muted max-w-xl">Manage your collection of worlds and narratives.</p>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-semibold w-full md:w-fit min-w-0">
               <Info size={14} />
-              <span className="whitespace-nowrap">Select a story to unlock Write, Character, and World tools</span>
+              <span className="break-words">Select a story to unlock Write, Character, and World tools</span>
             </div>
           </div>
         </div>
 
-        <button onClick={onAddStory} className="bg-accent hover:brightness-110 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-accent/20">
+        <button onClick={onAddStory} className="bg-accent hover:brightness-110 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-accent/20 w-full md:w-auto justify-center self-stretch md:self-auto">
           <Plus size={20} />
           Create New Story
         </button>
