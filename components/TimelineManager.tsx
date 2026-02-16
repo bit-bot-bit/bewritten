@@ -127,7 +127,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
                             <input 
                                 value={point.title}
                                 onChange={(e) => updatePoint(point.id, { title: e.target.value })}
-                                className="flex-1 bg-transparent font-semibold text-main focus:text-accent outline-none"
+                                className="themed-control flex-1 font-semibold text-main focus:text-accent outline-none px-2 py-1 rounded border border-transparent"
+                                style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                             />
                             <button onClick={() => deletePoint(point.id)} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400">
                                 <Trash2 size={16} />
@@ -136,7 +137,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
                         <textarea 
                             value={point.description}
                             onChange={(e) => updatePoint(point.id, { description: e.target.value })}
-                            className="w-full bg-surface/50 rounded p-2 text-sm text-muted mb-3 focus:bg-surface outline-none resize-none h-20"
+                            className="themed-control w-full rounded p-2 text-sm text-main mb-3 outline-none resize-none h-20 border"
+                            style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                         />
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">

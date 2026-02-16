@@ -161,7 +161,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
                     </div>
 
                     {/* Blurb Section */}
-                    <div className="bg-card/50 p-4 rounded-xl border border-border">
+                    <div className="bg-card p-4 rounded-xl border border-border">
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="font-semibold text-main flex items-center gap-2">
                                 <Sparkles size={18} /> Back Cover Blurb
@@ -179,13 +179,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
                             value={blurb}
                             onChange={(e) => setBlurb(e.target.value)}
                             placeholder="Story synopsis will appear here..."
-                            className="w-full bg-surface border border-border rounded-lg p-3 text-sm text-main h-24 resize-none outline-none focus:border-accent"
+                            className="themed-control w-full border border-border rounded-lg p-3 text-sm text-main h-24 resize-none outline-none focus:border-accent"
+                            style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                         />
                     </div>
 
                     {/* Layout Section - Only for HTML */}
                     {selectedFormat === 'html' && (
-                        <div className="bg-card/50 p-4 rounded-xl border border-border">
+                        <div className="bg-card p-4 rounded-xl border border-border">
                             <h3 className="font-semibold text-main mb-3 flex items-center gap-2">
                                 <Layout size={18} /> Layout Styling
                             </h3>
@@ -193,7 +194,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
                                 <input 
                                     value={stylePrompt}
                                     onChange={(e) => setStylePrompt(e.target.value)}
-                                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-main focus:border-accent outline-none"
+                                    className="themed-control flex-1 border border-border rounded-lg px-3 py-2 text-sm text-main focus:border-accent outline-none"
+                                    style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
                                 />
                                 <button 
                                     onClick={handleGenerateLayout}
@@ -208,7 +210,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
                                 For PDF: Download HTML, open in browser, then 'Print to PDF'.
                             </p>
                             {css && (
-                                 <div className="text-xs font-mono bg-black/30 p-2 rounded border border-border text-green-400 overflow-hidden h-20 relative">
+                                 <div className="text-xs font-mono p-2 rounded border border-border overflow-hidden h-20 relative themed-control">
                                     <div className="absolute top-1 right-2 text-[10px] text-muted">CSS Generated</div>
                                     {css.substring(0, 200)}...
                                  </div>
@@ -217,7 +219,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
                     )}
                 </div>
 
-                <div className="p-6 border-t border-border bg-card/30 rounded-b-2xl flex justify-end gap-3">
+                <div className="p-6 border-t border-border bg-card rounded-b-2xl flex justify-end gap-3">
                     <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-muted hover:text-main">
                         Cancel
                     </button>
