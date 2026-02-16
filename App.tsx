@@ -90,6 +90,7 @@ const App = () => {
   const [stories, setStories] = useState([]);
   const [activeStoryId, setActiveStoryId] = useState('');
   const [activeTab, setActiveTab] = useState(AppTab.STORIES);
+  const [storyUnlocked, setStoryUnlocked] = useState(false);
   const [currentThemeId, setCurrentThemeId] = useState('nexus');
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isMobile, setIsMobile] = useState(detectMobile);
@@ -155,6 +156,7 @@ const App = () => {
   const handleLogin = async (sessionUser) => {
     setUser(sessionUser);
     setActiveTab(AppTab.STORIES);
+    setStoryUnlocked(false);
     await refreshStories();
   };
 
@@ -184,6 +186,7 @@ const App = () => {
     const created = await createStoryForUser(story);
     setStories((prev) => [...prev, created]);
     setActiveStoryId(created.id);
+    setStoryUnlocked(true);
     setActiveTab(AppTab.WRITE);
   };
 
@@ -203,7 +206,14 @@ const App = () => {
 
   const handleSelectStory = (id) => {
     setActiveStoryId(id);
+    setStoryUnlocked(true);
     setActiveTab(AppTab.WRITE);
+  };
+
+  const handleTabChange = (tab) => {
+    const isToolTab = tab === AppTab.WRITE || tab === AppTab.CHARACTERS || tab === AppTab.WORLD || tab === AppTab.PLOT;
+    if (isToolTab && !storyUnlocked) return;
+    setActiveTab(tab);
   };
 
   const handlePasswordChange = async (currentPassword, newPassword) => {
@@ -218,6 +228,10 @@ const App = () => {
     setCurrentThemeId(next);
   };
 
+  const handleBackupRestoreComplete = async () => {
+    await refreshStories();
+  };
+
   useEffect(() => {
     if (!user) return;
     const t = window.setTimeout(() => {
@@ -228,6 +242,7 @@ const App = () => {
 
   useEffect(() => {
     if (!user) return;
+    if (!storyUnlocked || activeTab === AppTab.STORIES) return;
 
     const onKeyDown = (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -244,22 +259,22 @@ const App = () => {
       const key = String(e.key || '');
       if (key === '1') {
         e.preventDefault();
-        setActiveTab(AppTab.WRITE);
+        handleTabChange(AppTab.WRITE);
       } else if (key === '2') {
         e.preventDefault();
-        setActiveTab(AppTab.CHARACTERS);
+        handleTabChange(AppTab.CHARACTERS);
       } else if (key === '3') {
         e.preventDefault();
-        setActiveTab(AppTab.WORLD);
+        handleTabChange(AppTab.WORLD);
       } else if (key === '4') {
         e.preventDefault();
-        setActiveTab(AppTab.PLOT);
+        handleTabChange(AppTab.PLOT);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [user]);
+  }, [user, storyUnlocked, activeTab]);
 
   if (isBootstrapping) {
     return <div className="h-screen w-screen bg-background text-main flex items-center justify-center">Loading...</div>;
@@ -296,7 +311,7 @@ const App = () => {
 
   return (
     <div className="h-screen w-screen bg-background text-main flex overflow-hidden">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} isMobile={isMobile} />
+      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} onThemeChange={handleThemeToggle} onLogout={handleLogout} userRole={user.role} isMobile={isMobile} storyUnlocked={storyUnlocked} />
 
       <main className={`flex-1 relative overflow-x-hidden ${isMobile ? 'pt-14 pb-20' : ''}`}>
         {activeTab === AppTab.STORIES && (
@@ -345,7 +360,9 @@ const App = () => {
           )
         )}
 
-        {activeTab === AppTab.SETTINGS && <SettingsPage isAdmin={user.role === 'admin'} />}
+        {activeTab === AppTab.SETTINGS && (
+          <SettingsPage isAdmin={user.role === 'admin'} onRestoreComplete={handleBackupRestoreComplete} />
+        )}
       </main>
 
       {activeTab !== AppTab.STORIES && activeTab !== AppTab.SETTINGS && <AIAssistant storyState={activeStory} isMobile={isMobile} />}

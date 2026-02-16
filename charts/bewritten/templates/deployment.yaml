@@ -50,7 +50,17 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- $ingressHost := "" }}
+      {{- if and .Values.ingress.enabled (gt (len .Values.ingress.hosts) 0) }}
+      {{- $ingressHost = (index .Values.ingress.hosts 0).host | default "" }}
+      {{- end }}
+      {{- $publicUrl := .Values.env.BEWRITTEN_PUBLIC_URL | default "" }}
+      {{- if and (eq $publicUrl "") (ne $ingressHost "") }}
+      {{- $scheme := ternary "https" "http" (gt (len .Values.ingress.tls) 0) }}
+      {{- $publicUrl = printf "%s://%s" $scheme $ingressHost }}
+      {{- end }}
       containers:
+        {{- $appSecretName := .Values.secrets.existingSecret | default (printf "%s-app-secrets" (include "bewritten.fullname" .)) }}
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -64,11 +74,34 @@ spec:
             - name: BEWRITTEN_API_PORT
               value: "8080"
             - name: BEWRITTEN_ADMIN_EMAIL
-              value: {{ .Values.env.BEWRITTEN_ADMIN_EMAIL | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.adminEmail | quote }}
             - name: BEWRITTEN_ADMIN_PASSWORD
-              value: {{ .Values.env.BEWRITTEN_ADMIN_PASSWORD | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.adminPassword | quote }}
             - name: BEWRITTEN_SECRET_KEY
-              value: {{ .Values.env.BEWRITTEN_SECRET_KEY | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.appSecretKey | quote }}
+            - name: BEWRITTEN_PUBLIC_URL
+              value: {{ $publicUrl | quote }}
+            - name: BEWRITTEN_CORS_ORIGINS
+              value: {{ .Values.env.BEWRITTEN_CORS_ORIGINS | quote }}
+            - name: BEWRITTEN_OAUTH_ALLOWED_ORIGINS
+              value: {{ .Values.env.BEWRITTEN_OAUTH_ALLOWED_ORIGINS | quote }}
+            - name: BEWRITTEN_PASSWORD_RECOVERY_ENABLED
+              value: {{ .Values.env.BEWRITTEN_PASSWORD_RECOVERY_ENABLED | quote }}
+            - name: BEWRITTEN_LOGIN_BACKOFF_BASE_SECONDS
+              value: {{ .Values.env.BEWRITTEN_LOGIN_BACKOFF_BASE_SECONDS | quote }}
+            - name: BEWRITTEN_LOGIN_BACKOFF_MAX_SECONDS
+              value: {{ .Values.env.BEWRITTEN_LOGIN_BACKOFF_MAX_SECONDS | quote }}
+            - name: BEWRITTEN_LOGIN_FAILURE_RESET_WINDOW_SECONDS
+              value: {{ .Values.env.BEWRITTEN_LOGIN_FAILURE_RESET_WINDOW_SECONDS | quote }}
             - name: BEWRITTEN_AI_RATE_WINDOW_SECONDS
               value: {{ .Values.env.BEWRITTEN_AI_RATE_WINDOW_SECONDS | quote }}
             - name: BEWRITTEN_AI_RATE_MAX
@@ -77,12 +110,16 @@ spec:
             - name: BEWRITTEN_REDIS_URL
               value: {{ .Values.redis.url | quote }}
             {{- else if .Values.redis.enabled }}
+            - name: BEWRITTEN_REDIS_HOST
+              value: "{{ include "bewritten.fullname" . }}-redis"
+            - name: BEWRITTEN_REDIS_PORT
+              value: {{ .Values.redis.service.port | quote }}
             {{- if .Values.redis.password }}
-            - name: BEWRITTEN_REDIS_URL
-              value: "redis://:{{ .Values.redis.password }}@{{ include "bewritten.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
-            {{- else }}
-            - name: BEWRITTEN_REDIS_URL
-              value: "redis://{{ include "bewritten.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
+            - name: BEWRITTEN_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.redisPassword | quote }}
             {{- end }}
             {{- end }}
             {{- if .Values.postgres.enabled }}
@@ -93,7 +130,10 @@ spec:
             - name: DB_USER
               value: {{ .Values.postgres.auth.username | quote }}
             - name: DB_PASSWORD
-              value: {{ .Values.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.dbPassword | quote }}
             - name: DB_NAME
               value: {{ .Values.postgres.auth.database | quote }}
             {{- end }}

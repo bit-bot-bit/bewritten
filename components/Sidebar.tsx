@@ -9,9 +9,10 @@ interface SidebarProps {
   onLogout: () => void;
   isMobile?: boolean;
   userRole?: string;
+  storyUnlocked?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThemeChange, onLogout, isMobile = false }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThemeChange, onLogout, isMobile = false, storyUnlocked = false }) => {
   const navItems = [
     { id: AppTab.WRITE, label: 'Write', icon: Feather },
     { id: AppTab.CHARACTERS, label: 'Characters', icon: Users },
@@ -20,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
     { id: AppTab.SETTINGS, label: 'Settings', icon: Settings },
   ];
 
-  const isStoriesTab = activeTab === AppTab.STORIES;
+  const toolsLocked = !storyUnlocked;
 
   if (isMobile) {
     return (
@@ -50,16 +51,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
             <span className="leading-none">Stories</span>
           </button>
           {navItems.map((item) => {
-            const shouldDisable = isStoriesTab && item.id !== AppTab.SETTINGS;
+            const shouldDisable = toolsLocked && item.id !== AppTab.SETTINGS;
             return (
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
                 aria-pressed={activeTab === item.id}
                 disabled={shouldDisable}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
-                  activeTab === item.id ? 'text-accent bg-accent/10 border border-accent/40' : shouldDisable ? 'text-muted opacity-30' : 'text-muted'
-                }`}
+              className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
+                activeTab === item.id ? 'text-accent bg-accent/10 border border-accent/40' : shouldDisable ? 'text-muted opacity-30' : 'text-muted'
+              }`}
               >
                 <item.icon size={16} />
                 <span className="leading-none whitespace-nowrap">{item.label}</span>
@@ -96,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
 
       <nav className="flex flex-col gap-4 w-full px-2 flex-1">
         {navItems.map((item) => {
-          const shouldDisable = isStoriesTab && item.id !== AppTab.SETTINGS;
+          const shouldDisable = toolsLocked && item.id !== AppTab.SETTINGS;
           return (
             <button
               key={item.id}
@@ -106,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
               title={shouldDisable ? 'Select a story first' : item.label}
               className={`
                 flex flex-col items-center justify-center gap-1 p-3 rounded-xl border transition-all duration-200
-                ${activeTab === item.id ? 'border-accent ring-2 ring-accent/50 shadow-md -translate-y-px font-semibold' : shouldDisable ? 'opacity-30 cursor-not-allowed text-muted grayscale border-transparent' : 'text-muted hover:text-main hover:bg-card border-transparent'}
+                ${activeTab === item.id ? 'border-accent ring-2 ring-accent/50 shadow-md -translate-y-px font-semibold' : shouldDisable ? 'opacity-30 text-muted grayscale border-transparent' : 'text-muted hover:text-main hover:bg-card border-transparent'}
               `}
               style={activeTab === item.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
             >

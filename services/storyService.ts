@@ -42,6 +42,8 @@ export async function authenticateWithOAuth(providerId) {
     }
 
     function onMessage(event) {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== popup) return;
       const data = event.data;
       if (!data || data.type !== 'bewritten_oauth_result') return;
       cleanup();
@@ -91,4 +93,14 @@ export async function syncStoriesForUser(stories) {
 export async function deleteStoryForUser(storyId) {
   const data = await apiDelete(`/stories/${encodeURIComponent(storyId)}`);
   return data.deleted;
+}
+
+export async function exportAccountBackup() {
+  const data = await apiGet('/account/backup');
+  return data.backup;
+}
+
+export async function importAccountBackup(backup, mode = 'merge') {
+  const data = await apiPost('/account/restore', { backup, mode });
+  return data.result;
 }

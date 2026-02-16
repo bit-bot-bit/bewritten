@@ -20,6 +20,7 @@ Mythos AI is an intelligent, AI-powered creative writing suite designed to help 
 ### 4. **Multi-Story Management**
 *   **Library**: Manage multiple distinct stories and universes.
 *   **User Isolation**: Secure login system (simulated) that isolates data per user, allowing multiple writers to use the same device without data overlap.
+*   **Account Backup**: Export/import a versioned `.bwrx` account backup file covering stories, chapters, characters, world, and plot data.
 
 ### 5. **Export & Publishing**
 *   **Multi-Format Export**: Download your work as Markdown, Plain Text, or formatted HTML/PDF.
@@ -61,6 +62,7 @@ The application supports multiple visual themes to match your writing mood:
 ## ⚠️ Requirements
 
 *   **API Key**: This application requires a valid Google Gemini API Key provided in the environment variables.
+*   **Production Secrets**: Default admin/password and secret key values are for development only. In Kubernetes, use chart-backed Secret refs (or `secrets.existingSecret`) before production deployment.
 
 ---
 

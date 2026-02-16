@@ -288,8 +288,9 @@ export const Editor = ({ storyState, setStoryState }) => {
           </div>
         ) : (
           <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto overflow-x-hidden p-3 md:p-8 flex flex-col items-center">
-            <div className="mb-6 w-full overflow-x-auto pb-1">
-              <div className="flex gap-2 items-center bg-card p-2 rounded-xl border border-border min-w-max">
+            <div className="mb-6 w-full md:flex md:justify-center">
+              <div className="w-full md:w-auto overflow-x-auto md:overflow-visible pb-1">
+                <div className="flex gap-2 items-center bg-card p-2 rounded-xl border border-border min-w-max md:min-w-0">
                 <span className="text-xs font-bold text-muted uppercase px-2">Book Size:</span>
                 {BOOK_FORMATS.map((fmt) => (
                   <button
@@ -302,6 +303,7 @@ export const Editor = ({ storyState, setStoryState }) => {
                     {fmt.name}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 

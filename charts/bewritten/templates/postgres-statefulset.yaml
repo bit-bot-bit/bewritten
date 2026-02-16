@@ -1,4 +1,5 @@
 {{- if .Values.postgres.enabled -}}
+{{- $appSecretName := .Values.secrets.existingSecret | default (printf "%s-app-secrets" (include "bewritten.fullname" .)) }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -30,7 +31,10 @@ spec:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.username | quote }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $appSecretName }}
+                  key: {{ .Values.secrets.keys.dbPassword | quote }}
             - name: POSTGRES_DB
               value: {{ .Values.postgres.auth.database | quote }}
             - name: PGDATA

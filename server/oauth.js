@@ -62,6 +62,36 @@ function getPublicBase(req) {
   return String(process.env.BEWRITTEN_PUBLIC_URL || '').trim() || `${req.protocol}://${req.get('host')}`;
 }
 
+function normalizeOrigin(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return '';
+  }
+}
+
+function getAllowedReturnOrigins(req) {
+  const allowed = new Set();
+  const publicOrigin = normalizeOrigin(getPublicBase(req));
+  if (publicOrigin) allowed.add(publicOrigin);
+
+  const configured = String(process.env.BEWRITTEN_OAUTH_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((v) => normalizeOrigin(v))
+    .filter(Boolean);
+  for (const origin of configured) allowed.add(origin);
+  return allowed;
+}
+
+function sanitizeReturnTo(req, returnTo) {
+  const origin = normalizeOrigin(returnTo);
+  if (!origin) return '';
+  const allowed = getAllowedReturnOrigins(req);
+  return allowed.has(origin) ? origin : '';
+}
+
 function callbackUrl(req, providerId) {
   return `${getPublicBase(req)}/api/auth/oauth/${providerId}/callback`;
 }
@@ -99,8 +129,11 @@ async function consumeState(state) {
   return row;
 }
 
-function htmlResult({ ok, error, session, returnTo }) {
-  const targetOrigin = returnTo || '*';
+function htmlResult({ ok, error, session, returnTo, fallbackOrigin }) {
+  const targetOrigin = normalizeOrigin(returnTo) || normalizeOrigin(fallbackOrigin);
+  if (!targetOrigin) {
+    return '<!doctype html><html><body><script>window.close();</script></body></html>';
+  }
   const payload = { type: 'bewritten_oauth_result', ok, error: error || null, session: session || null };
   return `<!doctype html><html><body><script>
     (function () {
@@ -131,7 +164,11 @@ export async function startOAuth(req, res) {
   if (!provider) return res.status(404).json({ error: 'Unknown provider' });
   if (!isConfigured(provider)) return res.status(400).json({ error: `${provider.label} is not configured` });
 
-  const returnTo = String(req.query.return_to || '').trim();
+  const requestedReturnTo = String(req.query.return_to || '').trim();
+  const returnTo = sanitizeReturnTo(req, requestedReturnTo);
+  if (requestedReturnTo && !returnTo) {
+    return res.status(400).json({ error: 'Invalid return origin' });
+  }
   const { state } = await createState(provider.id, returnTo);
 
   const redirectUri = callbackUrl(req, provider.id);
@@ -232,15 +269,18 @@ export async function handleOAuthCallback(req, res) {
 
     const saved = await consumeState(state);
     if (!saved || saved.provider !== provider.id) throw new Error('Invalid OAuth state');
+    const returnTo = sanitizeReturnTo(req, saved.return_to || '');
 
     const profile = await exchangeCode(provider, req, code);
     if (!profile.email) throw new Error('OAuth provider did not return an email');
 
     const session = await upsertOAuthUser(provider.id, String(profile.providerUserId), String(profile.email), profile.displayName || null);
-    return res.status(200).send(htmlResult({ ok: true, session, returnTo: saved.return_to || '*' }));
+    return res.status(200).send(htmlResult({ ok: true, session, returnTo, fallbackOrigin: getPublicBase(req) }));
   } catch (error) {
     const message = String(error?.message || error || 'OAuth failed');
-    return res.status(400).send(htmlResult({ ok: false, error: message, returnTo: String(req.query.return_to || '*') }));
+    return res
+      .status(400)
+      .send(htmlResult({ ok: false, error: message, returnTo: '', fallbackOrigin: getPublicBase(req) }));
   }
 }
 
