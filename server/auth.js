@@ -119,6 +119,7 @@ export async function bootstrapAdminUser() {
       email: adminEmail,
       password_hash: makePasswordHash(adminPassword),
       role: 'admin',
+      tier: 'byok',
       locked: 0,
       must_change_password: 1,
       created_at: now,
@@ -150,6 +151,7 @@ export async function registerAndLogin(email, password) {
     email: normalizedEmail,
     password_hash: makePasswordHash(password),
     role: 'user',
+    tier: 'byok',
     locked: 0,
     must_change_password: 0,
     created_at: now,
@@ -188,6 +190,7 @@ export async function upsertOAuthUser(provider, providerUserId, email, displayNa
       email: normalizedEmail,
       password_hash: null,
       role: 'user',
+      tier: 'byok',
       locked: 0,
       must_change_password: 0,
       created_at: now,
@@ -296,22 +299,26 @@ export async function listUsersForAdmin() {
     .select(
       'users.email',
       'users.role',
+      'users.tier',
       'users.locked',
       'users.must_change_password',
       'users.created_at',
       'users.updated_at',
-      db.raw('(SELECT MAX(last_seen_at) FROM sessions WHERE user_email = users.email) as last_seen_at')
+      db.raw('(SELECT MAX(last_seen_at) FROM sessions WHERE user_email = users.email) as last_seen_at'),
+      db.raw('(SELECT balance FROM user_credits WHERE user_email = users.email) as token_balance')
     )
     .orderBy('created_at', 'desc');
 
   return rows.map((row) => ({
     email: row.email,
     role: row.role || 'user',
+    tier: row.tier || 'byok',
     locked: Boolean(row.locked),
     mustChangePassword: Boolean(row.must_change_password),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastSeenAt: row.last_seen_at || null,
+    tokenBalance: row.token_balance === null || row.token_balance === undefined ? null : Number(row.token_balance),
   }));
 }
 

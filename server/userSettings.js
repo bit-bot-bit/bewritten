@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
+import { getMonetizationConfig, getUserCreditStatus, getUserTier } from './monetization.js';
 
 function nowIso() {
   return new Date().toISOString();
@@ -53,7 +54,19 @@ export function getDefaultUserAiSettings() {
     aiApiKey: '',
     aiApiKeyMasked: '',
     hasApiKey: false,
+    availableTargets: ['gemini', 'openai_compatible', 'disabled'],
+    tier: 'byok',
+    credits: null,
+    monetizationEnabled: false,
   };
+}
+
+async function getAvailableTargetsForUser(email) {
+  const tier = await getUserTier(email);
+  const monetization = await getMonetizationConfig();
+  if (!monetization.enabled) return ['gemini', 'openai_compatible', 'disabled'];
+  if (tier === 'byok') return ['gemini', 'openai_compatible', 'disabled'];
+  return ['shared', 'disabled'];
 }
 
 export async function getUserAiSettings(email, options = {}) {
@@ -63,17 +76,34 @@ export async function getUserAiSettings(email, options = {}) {
     .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url')
     .where('user_email', email)
     .first();
-
-  if (!row) return getDefaultUserAiSettings();
+  const availableTargets = await getAvailableTargetsForUser(email);
+  const tier = await getUserTier(email);
+  const credits = await getUserCreditStatus(email);
+  if (!row) {
+    return {
+      ...getDefaultUserAiSettings(),
+      aiTarget: availableTargets[0] || 'disabled',
+      availableTargets,
+      tier,
+      credits,
+      monetizationEnabled: Boolean(credits?.monetizationEnabled),
+    };
+  }
 
   const plainKey = decryptSecret(row.ai_api_key || '');
+  const target = row.ai_target || 'gemini';
+  const aiTarget = availableTargets.includes(target) ? target : availableTargets[0];
   return {
-    aiTarget: row.ai_target || 'gemini',
+    aiTarget,
     aiModel: row.ai_model || '',
     aiBaseUrl: row.ai_base_url || '',
     hasApiKey: Boolean(plainKey),
     aiApiKey: includeSecret ? plainKey : '',
     aiApiKeyMasked: includeSecret ? '' : getMaskedKey(row.ai_api_key || ''),
+    availableTargets,
+    tier,
+    credits,
+    monetizationEnabled: Boolean(credits?.monetizationEnabled),
   };
 }
 
@@ -83,8 +113,12 @@ export async function saveUserAiSettings(email, next, options = {}) {
   const current = await getUserAiSettings(email, { includeSecret: true });
   const merged = { ...current, ...next };
 
-  const allowedTargets = new Set(['gemini', 'openai_compatible', 'disabled']);
+  const availableTargets = await getAvailableTargetsForUser(email);
+  const allowedTargets = new Set([...availableTargets, 'shared']);
   if (!allowedTargets.has(merged.aiTarget)) throw new Error('Invalid AI target');
+  if (!availableTargets.includes(merged.aiTarget)) {
+    throw new Error('AI target is not allowed for your tier');
+  }
 
   const incomingKey = typeof next.aiApiKey === 'string' ? next.aiApiKey.trim() : null;
   let resolvedApiKey = current.aiApiKey || '';

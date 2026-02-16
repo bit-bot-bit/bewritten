@@ -24,6 +24,15 @@ import {
 } from './auth.js';
 import { listOAuthProviders, getOAuthDiagnostics, startOAuth, handleOAuthCallback } from './oauth.js';
 import { getUserAiSettings, saveUserAiSettings } from './userSettings.js';
+import { getTransientInfo, incrementTransientCounter, withTransientLock } from './transientState.js';
+import {
+  chargeTokensForTask,
+  getMonetizationConfig,
+  getMonetizationDefaults,
+  getUserCreditStatus,
+  saveMonetizationConfig,
+  setUserTierByAdmin,
+} from './monetization.js';
 
 export const app = express();
 app.use(cors());
@@ -36,7 +45,7 @@ export async function initApp() {
   adminBootstrap = await bootstrapAdminUser();
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, adminBootstrap });
+    res.json({ ok: true, adminBootstrap, transient: getTransientInfo() });
   });
 
   app.post('/api/auth/login', async (req, res) => {
@@ -117,6 +126,8 @@ export async function initApp() {
         sessionTtlDays: getSessionTtlDays(),
         registrationEnabled: await getRegistrationEnabled(),
       },
+      monetization: await getMonetizationConfig(),
+      monetizationDefaults: getMonetizationDefaults(),
       oauthProviders: getOAuthDiagnostics(req),
       users: await listUsersForAdmin(),
       publicUrl: process.env.BEWRITTEN_PUBLIC_URL || null,
@@ -129,6 +140,17 @@ export async function initApp() {
       const enabled = Boolean(req.body?.enabled);
       const registrationEnabled = await setRegistrationEnabled(enabled);
       return res.json({ registrationEnabled });
+    } catch (error) {
+      return res.status(400).json({ error: String(error.message || error) });
+    }
+  });
+
+  app.put('/api/admin/settings/monetization', requireAuth, requireAdmin, async (req, res) => {
+    const monetization = req.body?.monetization || {};
+    const keepExistingSharedKey = Boolean(req.body?.keepExistingSharedKey ?? true);
+    try {
+      const saved = await saveMonetizationConfig(monetization, { keepExistingSharedKey });
+      return res.json({ monetization: saved });
     } catch (error) {
       return res.status(400).json({ error: String(error.message || error) });
     }
@@ -150,6 +172,17 @@ export async function initApp() {
       const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
       const role = String(req.body?.role || 'user');
       await setUserRoleByAdmin(req.auth.email, email, role);
+      return res.json({ ok: true });
+    } catch (error) {
+      return res.status(400).json({ error: String(error.message || error) });
+    }
+  });
+
+  app.put('/api/admin/users/:email/tier', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
+      const tier = String(req.body?.tier || 'byok').trim().toLowerCase();
+      await setUserTierByAdmin(req.auth.email, email, tier);
       return res.json({ ok: true });
     } catch (error) {
       return res.status(400).json({ error: String(error.message || error) });
@@ -189,8 +222,12 @@ export async function initApp() {
     const story = req.body?.story;
     if (!story?.id) return res.status(400).json({ error: 'story payload is required' });
     try {
-      return res.status(201).json({ story: await createStory(req.auth.email, story) });
+      const created = await withTransientLock(`story:${req.auth.email}:${story.id}`, 8000, async () =>
+        createStory(req.auth.email, story)
+      );
+      return res.status(201).json({ story: created });
     } catch (error) {
+      if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
       return res.status(400).json({ error: String(error.message || error) });
     }
   });
@@ -201,8 +238,12 @@ export async function initApp() {
     if (!story || story.id !== storyId) return res.status(400).json({ error: 'matching story is required' });
 
     try {
-      return res.json({ story: await saveStory(req.auth.email, story) });
+      const saved = await withTransientLock(`story:${req.auth.email}:${story.id}`, 8000, async () =>
+        saveStory(req.auth.email, story)
+      );
+      return res.json({ story: saved });
     } catch (error) {
+      if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
       return res.status(400).json({ error: String(error.message || error) });
     }
   });
@@ -212,17 +253,23 @@ export async function initApp() {
     if (!Array.isArray(stories)) return res.status(400).json({ error: 'stories[] are required' });
 
     try {
-      return res.json(await syncStories(req.auth.email, stories));
+      const result = await withTransientLock(`sync:${req.auth.email}`, 15000, async () => syncStories(req.auth.email, stories));
+      return res.json(result);
     } catch (error) {
+      if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
       return res.status(400).json({ error: String(error.message || error) });
     }
   });
 
   app.delete('/api/stories/:storyId', requireAuth, requirePasswordFresh, async (req, res) => {
     try {
-      return res.json({ deleted: await deleteStory(req.auth.email, req.params.storyId) });
-    } catch {
-      return res.status(500).json({ error: 'Failed to delete story' });
+      const deleted = await withTransientLock(`story:${req.auth.email}:${req.params.storyId}`, 8000, async () =>
+        deleteStory(req.auth.email, req.params.storyId)
+      );
+      return res.json({ deleted });
+    } catch (error) {
+      if (error?.code === 'TRANSIENT_LOCKED') return res.status(409).json({ error: error.message });
+      return res.status(500).json({ error: String(error?.message || 'Failed to delete story') });
     }
   });
 
@@ -231,6 +278,28 @@ export async function initApp() {
     const actorEmail = req.auth?.email || null;
 
     try {
+      const windowSeconds = Math.max(5, Number(process.env.BEWRITTEN_AI_RATE_WINDOW_SECONDS || 20));
+      const maxInWindow = Math.max(1, Number(process.env.BEWRITTEN_AI_RATE_MAX || 8));
+      if (actorEmail) {
+        const count = await incrementTransientCounter(`ai:${actorEmail}:${task}`, windowSeconds);
+        if (count > maxInWindow) {
+          return res.status(429).json({ error: 'AI is currently busy. You are trying too much right now, please try again shortly.' });
+        }
+
+        try {
+          await chargeTokensForTask(actorEmail, task);
+        } catch (e) {
+          if (e?.code === 'INSUFFICIENT_TOKENS') {
+            const status = await getUserCreditStatus(actorEmail).catch(() => null);
+            return res.status(402).json({
+              error: String(e.message || 'Not enough tokens'),
+              credits: status,
+            });
+          }
+          throw e;
+        }
+      }
+
       await recordAiRun({ storyId, actorEmail, task, status: 'started' });
       const data = await fn();
       await recordAiRun({ storyId, actorEmail, task, status: 'succeeded' });

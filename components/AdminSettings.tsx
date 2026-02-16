@@ -4,6 +4,8 @@ import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unloc
 
 export const AdminSettings = ({ compact = false }) => {
   const [data, setData] = useState(null);
+  const [monetization, setMonetization] = useState(null);
+  const [replaceSharedKey, setReplaceSharedKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -14,6 +16,8 @@ export const AdminSettings = ({ compact = false }) => {
     try {
       const res = await apiGet('/admin/settings');
       setData(res);
+      setMonetization(res.monetization || null);
+      setReplaceSharedKey(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load admin settings');
     } finally {
@@ -56,6 +60,12 @@ export const AdminSettings = ({ compact = false }) => {
     }).catch(() => {});
   };
 
+  const setUserTier = (email, tier) => {
+    withRefresh(async () => {
+      await apiPut(`/admin/users/${encodeURIComponent(email)}/tier`, { tier });
+    }).catch(() => {});
+  };
+
   const deleteUser = (email) => {
     if (!window.confirm(`Delete user ${email}? This removes all their stories and settings.`)) return;
     withRefresh(async () => {
@@ -74,6 +84,22 @@ export const AdminSettings = ({ compact = false }) => {
 
     withRefresh(async () => {
       await apiPut(`/admin/users/${encodeURIComponent(email)}/password`, { password });
+    }).catch(() => {});
+  };
+
+  const saveMonetization = () => {
+    if (!monetization) return;
+    withRefresh(async () => {
+      await apiPut('/admin/settings/monetization', {
+        monetization: {
+          ...monetization,
+          shared: {
+            ...monetization.shared,
+            apiKey: replaceSharedKey ? monetization.shared?.apiKey : '',
+          },
+        },
+        keepExistingSharedKey: !replaceSharedKey,
+      });
     }).catch(() => {});
   };
 
@@ -124,6 +150,148 @@ export const AdminSettings = ({ compact = false }) => {
         </div>
       </div>
 
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-main font-semibold">Monetization</div>
+          <label className="inline-flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={Boolean(monetization?.enabled)}
+              onChange={(e) => setMonetization((prev) => ({ ...(prev || {}), enabled: e.target.checked }))}
+            />
+            Enabled
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label className="text-xs text-muted uppercase tracking-wide">Free Cap</label>
+            <input
+              type="number"
+              min="0"
+              value={monetization?.tiers?.free?.cap ?? 100}
+              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, free: { ...prev.tiers?.free, cap: Number(e.target.value || 0) } } }))}
+              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted uppercase tracking-wide">Free Daily Refill</label>
+            <input
+              type="number"
+              min="0"
+              value={monetization?.tiers?.free?.refillPerDay ?? 20}
+              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, free: { ...prev.tiers?.free, refillPerDay: Number(e.target.value || 0) } } }))}
+              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted uppercase tracking-wide">Pro Cap</label>
+            <input
+              type="number"
+              min="0"
+              value={monetization?.tiers?.pro?.cap ?? 2000}
+              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, pro: { ...prev.tiers?.pro, cap: Number(e.target.value || 0) } } }))}
+              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted uppercase tracking-wide">Pro Daily Refill</label>
+            <input
+              type="number"
+              min="0"
+              value={monetization?.tiers?.pro?.refillPerDay ?? 20}
+              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, pro: { ...prev.tiers?.pro, refillPerDay: Number(e.target.value || 0) } } }))}
+              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+            />
+          </div>
+        </div>
+
+        <div className="border border-border rounded-xl p-4 space-y-3">
+          <div className="text-sm font-semibold text-main">Shared Key Runtime (Admin Only)</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-xs text-muted uppercase tracking-wide">Target</label>
+              <select
+                value={monetization?.shared?.target || 'gemini'}
+                onChange={(e) => setMonetization((prev) => ({ ...prev, shared: { ...prev.shared, target: e.target.value } }))}
+                className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+              >
+                <option value="gemini">Gemini</option>
+                <option value="openai_compatible">OpenAI Compatible</option>
+                <option value="disabled">Disabled</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted uppercase tracking-wide">Model</label>
+              <input
+                value={monetization?.shared?.model || ''}
+                onChange={(e) => setMonetization((prev) => ({ ...prev, shared: { ...prev.shared, model: e.target.value } }))}
+                className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs text-muted uppercase tracking-wide">Base URL (OpenAI-compatible)</label>
+              <input
+                value={monetization?.shared?.baseUrl || ''}
+                onChange={(e) => setMonetization((prev) => ({ ...prev, shared: { ...prev.shared, baseUrl: e.target.value } }))}
+                className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+              />
+            </div>
+          </div>
+
+          {monetization?.shared?.hasApiKey && !replaceSharedKey && (
+            <div className="text-xs text-muted">Stored shared key: <span className="font-mono">{monetization.shared.apiKeyMasked || 'configured'}</span></div>
+          )}
+          <label className="inline-flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={replaceSharedKey}
+              onChange={(e) => {
+                setReplaceSharedKey(e.target.checked);
+                setMonetization((prev) => ({ ...prev, shared: { ...prev.shared, apiKey: '' } }));
+              }}
+            />
+            Replace shared API key
+          </label>
+          <input
+            type="password"
+            value={monetization?.shared?.apiKey || ''}
+            onChange={(e) => setMonetization((prev) => ({ ...prev, shared: { ...prev.shared, apiKey: e.target.value } }))}
+            placeholder={replaceSharedKey ? 'Shared API key' : 'Key remains unchanged unless replaced'}
+            className="themed-control w-full rounded-lg border px-3 py-2 text-main"
+            disabled={!replaceSharedKey}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-main">Interface Token Costs (Estimate Per Action)</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {(data?.monetizationDefaults?.knownTasks || Object.keys(monetization?.taskCosts || {})).map((task) => (
+              <label key={task} className="text-xs text-muted space-y-1">
+                <div>{task}</div>
+                <input
+                  type="number"
+                  min="0"
+                  value={monetization?.taskCosts?.[task] ?? 0}
+                  onChange={(e) => setMonetization((prev) => ({ ...prev, taskCosts: { ...prev.taskCosts, [task]: Number(e.target.value || 0) } }))}
+                  className="themed-control w-full rounded border px-2 py-1 text-main"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <button
+            onClick={saveMonetization}
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg bg-accent text-white hover:brightness-110 disabled:opacity-70"
+          >
+            Save Monetization
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-3">
         <h3 className="text-xl font-bold text-main">Users</h3>
         <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
@@ -133,9 +301,24 @@ export const AdminSettings = ({ compact = false }) => {
           {data.users.map((u) => (
             <div key={u.email} className="grid grid-cols-12 gap-2 px-4 py-3 text-sm border-b last:border-b-0 border-border items-center">
               <div className="col-span-4 font-mono text-main break-all">{u.email}</div>
-              <div className="col-span-2"><span className={`px-2 py-1 rounded text-xs border ${u.role === 'admin' ? 'border-accent text-accent bg-accent/10' : 'border-border text-muted bg-surface'}`}>{u.role}</span></div>
+              <div className="col-span-2 flex flex-col gap-1">
+                <span className={`px-2 py-1 rounded text-xs border w-fit ${u.role === 'admin' ? 'border-accent text-accent bg-accent/10' : 'border-border text-muted bg-surface'}`}>{u.role}</span>
+                <select
+                  value={u.tier || 'byok'}
+                  onChange={(e) => setUserTier(u.email, e.target.value)}
+                  disabled={isSaving}
+                  className="themed-control text-xs rounded border px-2 py-1"
+                >
+                  <option value="free">free</option>
+                  <option value="pro">pro</option>
+                  <option value="byok">byok</option>
+                </select>
+              </div>
               <div className="col-span-2 text-muted">{u.locked ? 'Locked' : 'Active'}{u.mustChangePassword ? ' · Reset Required' : ''}</div>
-              <div className="col-span-2 text-muted text-xs">{u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
+              <div className="col-span-2 text-muted text-xs">
+                <div>{u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
+                <div>Tokens: {u.tokenBalance ?? '—'}</div>
+              </div>
               <div className="col-span-2 flex justify-end gap-1">
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={14} /></button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={14} /> : <Lock size={14} />}</button>
@@ -154,7 +337,21 @@ export const AdminSettings = ({ compact = false }) => {
                 <span className={`px-2 py-1 rounded border ${u.role === 'admin' ? 'border-accent text-accent bg-accent/10' : 'border-border text-muted bg-surface'}`}>{u.role}</span>
                 <span className="text-muted">{u.locked ? 'Locked' : 'Active'}{u.mustChangePassword ? ' · Reset Required' : ''}</span>
               </div>
+              <div>
+                <label className="text-xs text-muted mr-2">Tier</label>
+                <select
+                  value={u.tier || 'byok'}
+                  onChange={(e) => setUserTier(u.email, e.target.value)}
+                  disabled={isSaving}
+                  className="themed-control text-xs rounded border px-2 py-1"
+                >
+                  <option value="free">free</option>
+                  <option value="pro">pro</option>
+                  <option value="byok">byok</option>
+                </select>
+              </div>
               <div className="text-xs text-muted">Last Seen: {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
+              <div className="text-xs text-muted">Tokens: {u.tokenBalance ?? '—'}</div>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={13} />Role</button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={13} /> : <Lock size={13} />}Lock</button>

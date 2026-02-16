@@ -56,40 +56,51 @@ export async function createStory(email, story) {
 
 export async function saveStory(email, story) {
   const db = getDb();
-  const existing = await db('stories')
-    .select('version', 'payload_hash')
-    .where({ id: story.id, user_email: email })
-    .first();
-
-  if (!existing) throw new Error('Story not found');
-
   const payloadJson = JSON.stringify(story);
   const payloadHash = hashPayload(story);
-  if (existing.payload_hash === payloadHash) return story;
+  const maxAttempts = 3;
 
-  const nextVersion = Number(existing.version || 1) + 1;
-  const now = nowIso();
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const existing = await db('stories')
+      .select('version', 'payload_hash')
+      .where({ id: story.id, user_email: email })
+      .first();
 
-  await db('stories')
-    .where({ id: story.id, user_email: email })
-    .update({
-      title: story.title || 'Untitled Story',
-      payload_json: payloadJson,
-      payload_hash: payloadHash,
+    if (!existing) throw new Error('Story not found');
+    if (existing.payload_hash === payloadHash) return story;
+
+    const currentVersion = Number(existing.version || 1);
+    const nextVersion = currentVersion + 1;
+    const now = nowIso();
+
+    const updatedRows = await db('stories')
+      .where({ id: story.id, user_email: email, version: currentVersion })
+      .update({
+        title: story.title || 'Untitled Story',
+        payload_json: payloadJson,
+        payload_hash: payloadHash,
+        version: nextVersion,
+        updated_at: now,
+      });
+
+    if (updatedRows === 0) {
+      if (attempt === maxAttempts) throw new Error('Story update conflict. Please retry.');
+      continue;
+    }
+
+    await db('story_versions').insert({
+      story_id: story.id,
+      user_email: email,
       version: nextVersion,
-      updated_at: now,
+      payload_hash: payloadHash,
+      payload_json: payloadJson,
+      created_at: now,
     });
 
-  await db('story_versions').insert({
-    story_id: story.id,
-    user_email: email,
-    version: nextVersion,
-    payload_hash: payloadHash,
-    payload_json: payloadJson,
-    created_at: now,
-  });
+    return story;
+  }
 
-  return story;
+  throw new Error('Story update conflict. Please retry.');
 }
 
 export async function syncStories(email, stories) {
