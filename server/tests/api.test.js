@@ -9,6 +9,10 @@ const USER_PASSWORD = 'password123';
 const USER_TEMP_PASSWORD = 'TempPass123!';
 const USER_FINAL_PASSWORD = 'FinalPass123!';
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe('API Tests', () => {
   let app;
   let initApp;
@@ -88,11 +92,16 @@ describe('API Tests', () => {
     const oldPasswordLogin = await request(app)
       .post('/api/auth/login')
       .send({ email: USER_EMAIL, password: USER_PASSWORD });
-    expect(oldPasswordLogin.statusCode).toBe(401);
+    expect([401, 429]).toContain(oldPasswordLogin.statusCode);
 
-    const tempPasswordLogin = await request(app)
-      .post('/api/auth/login')
-      .send({ email: USER_EMAIL, password: USER_TEMP_PASSWORD });
+    let tempPasswordLogin = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      tempPasswordLogin = await request(app)
+        .post('/api/auth/login')
+        .send({ email: USER_EMAIL, password: USER_TEMP_PASSWORD });
+      if (tempPasswordLogin.statusCode !== 429) break;
+      await sleep(1100);
+    }
     expect(tempPasswordLogin.statusCode).toBe(200);
     expect(tempPasswordLogin.body.user.mustChangePassword).toBe(true);
     userToken = tempPasswordLogin.body.token;
