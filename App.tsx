@@ -222,6 +222,41 @@ const App = () => {
     return () => window.clearTimeout(t);
   }, [stories, user]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const onKeyDown = (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.altKey || e.shiftKey) return;
+
+      const target = e.target;
+      const tagName = target?.tagName?.toLowerCase?.() || '';
+      const isTypingField =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        target?.isContentEditable;
+      if (isTypingField) return;
+
+      const key = String(e.key || '');
+      if (key === '1') {
+        e.preventDefault();
+        setActiveTab(AppTab.WRITE);
+      } else if (key === '2') {
+        e.preventDefault();
+        setActiveTab(AppTab.CHARACTERS);
+      } else if (key === '3') {
+        e.preventDefault();
+        setActiveTab(AppTab.WORLD);
+      } else if (key === '4') {
+        e.preventDefault();
+        setActiveTab(AppTab.PLOT);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [user]);
+
   if (isBootstrapping) {
     return <div className="h-screen w-screen bg-background text-main flex items-center justify-center">Loading...</div>;
   }

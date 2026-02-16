@@ -141,6 +141,23 @@ export const Editor = ({ storyState, setStoryState }) => {
 
   const updateStoryTitle = (newTitle) => setStoryState((prev) => ({ ...prev, title: newTitle }));
 
+  const handleEditorKeyDown = (e) => {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+
+    const textarea = e.currentTarget;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = currentChapter.content;
+
+    const nextValue = `${value.slice(0, start)}\t${value.slice(end)}`;
+    updateContent(nextValue);
+
+    requestAnimationFrame(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + 1;
+    });
+  };
+
   const addChapter = () => {
     const newChapter = { id: generateId(), title: `Chapter ${storyState.chapters.length + 1}`, content: '', order: storyState.chapters.length + 1 };
     setStoryState((prev) => ({ ...prev, chapters: [...prev.chapters, newChapter], currentChapterId: newChapter.id }));
@@ -233,7 +250,7 @@ export const Editor = ({ storyState, setStoryState }) => {
 
         {viewMode === 'edit' ? (
           <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden">
-            <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={false} />
+            <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} onKeyDown={handleEditorKeyDown} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={false} />
           </div>
         ) : (
           <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto p-4 md:p-8 flex flex-col items-center">
