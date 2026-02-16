@@ -26,25 +26,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
   if (isMobile) {
     return (
       <>
-        <div className="fixed top-2 left-3 z-30 text-accent bg-surface border border-border rounded-xl p-2">
+        <div className="fixed top-2 left-3 z-30 text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg rounded-xl p-2">
           <BookOpen size={22} />
         </div>
 
         <div className="fixed top-2 right-3 z-30 flex items-center gap-2">
-          <button onClick={onThemeChange} className="p-2 rounded-xl text-muted hover:text-accent bg-surface border border-border transition-colors" title="Switch Theme">
+          <button onClick={onThemeChange} className="p-2 rounded-xl text-muted hover:text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Switch Theme">
             <Palette size={18} />
           </button>
-          <button onClick={onLogout} className="p-2 rounded-xl text-muted hover:text-red-400 bg-surface border border-border transition-colors" title="Sign Out">
+          <button onClick={onLogout} className="p-2 rounded-xl text-muted hover:text-red-400 bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Sign Out">
             <LogOut size={18} />
           </button>
         </div>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-30 bg-surface border-t border-border grid grid-cols-6 px-1 py-1">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-surface/88 backdrop-blur-xl border-t border-border shadow-[0_-8px_32px_rgba(0,0,0,0.35)] grid grid-cols-6 px-1 py-1">
           <button
             onClick={() => onTabChange(AppTab.STORIES)}
             aria-pressed={activeTab === AppTab.STORIES}
             className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
-              activeTab === AppTab.STORIES ? 'text-accent bg-accent/10 border border-accent/40' : 'text-muted'
+              activeTab === AppTab.STORIES ? 'text-accent bg-accent/18 border border-accent/40' : 'text-main/85'
             }`}
           >
             <Library size={16} />
@@ -59,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
                 aria-pressed={activeTab === item.id}
                 disabled={shouldDisable}
               className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
-                activeTab === item.id ? 'text-accent bg-accent/10 border border-accent/40' : shouldDisable ? 'text-muted opacity-30' : 'text-muted'
+                activeTab === item.id ? 'text-accent bg-accent/18 border border-accent/40' : shouldDisable ? 'text-muted opacity-35' : 'text-main/85'
               }`}
               >
                 <item.icon size={16} />

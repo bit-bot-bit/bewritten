@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppTab } from './types';
+import { AppTab, ThemeId } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
 import { CharacterManager } from './components/CharacterManager';
@@ -16,10 +16,11 @@ import {
   changeCurrentUserPassword,
   createStoryForUser,
   deleteStoryForUser,
+  fetchUserSettings,
   fetchCurrentUser,
   listStories,
+  saveUserSettings,
   saveStoryForUser,
-  syncStoriesForUser,
 } from './services/storyService';
 import { generateId } from './utils/id';
 
@@ -63,7 +64,41 @@ const THEMES = {
       accentDim: 'rgba(16, 185, 129, 0.2)',
     },
   },
+  solstice: {
+    id: 'solstice',
+    colors: {
+      bg: '#1a1307',
+      surface: '#2a1d0b',
+      card: '#3a2a12',
+      border: '#5a4423',
+      textMain: '#f7efe0',
+      textMuted: '#c7b69a',
+      accent: '#f59e0b',
+      accentDim: 'rgba(245, 158, 11, 0.2)',
+    },
+  },
+  fjord: {
+    id: 'fjord',
+    colors: {
+      bg: '#07171d',
+      surface: '#0f252d',
+      card: '#183744',
+      border: '#2b5563',
+      textMain: '#e7f6fb',
+      textMuted: '#9ec2ce',
+      accent: '#22d3ee',
+      accentDim: 'rgba(34, 211, 238, 0.2)',
+    },
+  },
 };
+
+const THEME_STORAGE_KEY = 'bewritten_theme_id';
+const THEME_IDS = Object.keys(THEMES) as ThemeId[];
+
+function normalizeThemeId(raw: unknown): ThemeId {
+  const themeId = String(raw || '').trim() as ThemeId;
+  return THEMES[themeId] ? themeId : 'nexus';
+}
 
 function createFreshStory(num = 1) {
   const chapterId = generateId();
@@ -75,6 +110,12 @@ function createFreshStory(num = 1) {
     characters: [],
     locations: [],
     plotPoints: [],
+    plotConsensusCache: {
+      byChapter: {},
+      all: { runs: [[], [], []], consensus: [] },
+    },
+    genre: '',
+    aiReviews: [],
   };
 }
 
@@ -91,10 +132,16 @@ const App = () => {
   const [activeStoryId, setActiveStoryId] = useState('');
   const [activeTab, setActiveTab] = useState(AppTab.STORIES);
   const [storyUnlocked, setStoryUnlocked] = useState(false);
-  const [currentThemeId, setCurrentThemeId] = useState('nexus');
+  const [currentThemeId, setCurrentThemeId] = useState<ThemeId>(() => {
+    if (typeof window === 'undefined') return 'nexus';
+    return normalizeThemeId(window.localStorage.getItem(THEME_STORAGE_KEY));
+  });
+  const [themeHydratedForUser, setThemeHydratedForUser] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isMobile, setIsMobile] = useState(detectMobile);
   const [showToolChapters, setShowToolChapters] = useState(() => !detectMobile());
+  const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved');
+  const [saveMessage, setSaveMessage] = useState('Saved');
 
   const activeStory = useMemo(() => stories.find((s) => s.id === activeStoryId) || stories[0] || null, [stories, activeStoryId]);
 
@@ -113,7 +160,15 @@ const App = () => {
 
   useEffect(() => {
     applyTheme(currentThemeId);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(THEME_STORAGE_KEY, currentThemeId);
+    }
   }, [currentThemeId]);
+
+  useEffect(() => {
+    if (!user || !themeHydratedForUser) return;
+    saveUserSettings({ themeId: currentThemeId }, { keepExistingKey: true }).catch(() => {});
+  }, [user, themeHydratedForUser, currentThemeId]);
 
   useEffect(() => {
     const onResize = () => setIsMobile(detectMobile());
@@ -131,10 +186,34 @@ const App = () => {
       const created = await createStoryForUser(createFreshStory(1));
       setStories([created]);
       setActiveStoryId(created.id);
+      setSaveState('saved');
+      setSaveMessage('Saved');
       return;
     }
-    setStories(rows);
-    if (!activeStoryId || !rows.find((s) => s.id === activeStoryId)) setActiveStoryId(rows[0].id);
+    const normalizedRows = rows.map((story) => ({
+      ...story,
+      genre: typeof story.genre === 'string' ? story.genre : '',
+      aiReviews: Array.isArray(story.aiReviews) ? story.aiReviews.slice(0, 3) : [],
+    }));
+    setStories(normalizedRows);
+    setSaveState('saved');
+    setSaveMessage('Saved');
+    if (!activeStoryId || !normalizedRows.find((s) => s.id === activeStoryId)) setActiveStoryId(normalizedRows[0].id);
+  };
+
+  const hydrateThemeFromUserSettings = async () => {
+    try {
+      const settings = await fetchUserSettings();
+      const nextTheme = normalizeThemeId(settings?.themeId);
+      setCurrentThemeId(nextTheme);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      }
+    } catch {
+      // Keep local fallback if user settings cannot be loaded.
+    } finally {
+      setThemeHydratedForUser(true);
+    }
   };
 
   useEffect(() => {
@@ -142,10 +221,12 @@ const App = () => {
       try {
         const me = await fetchCurrentUser();
         setUser(me);
+        await hydrateThemeFromUserSettings();
         await refreshStories();
       } catch {
         clearSession();
         setUser(null);
+        setThemeHydratedForUser(false);
       } finally {
         setIsBootstrapping(false);
       }
@@ -157,12 +238,15 @@ const App = () => {
     setUser(sessionUser);
     setActiveTab(AppTab.STORIES);
     setStoryUnlocked(false);
+    setThemeHydratedForUser(false);
+    await hydrateThemeFromUserSettings();
     await refreshStories();
   };
 
   const handleLogout = () => {
     clearSession();
     setUser(null);
+    setThemeHydratedForUser(false);
     setStories([]);
     setActiveStoryId('');
     setActiveTab(AppTab.STORIES);
@@ -175,10 +259,11 @@ const App = () => {
       return prevStories.map((story) => {
         if (story.id !== activeStory.id) return story;
         const next = typeof update === 'function' ? update(story) : update;
-        saveStoryForUser(next).catch(() => {});
         return next;
       });
     });
+    setSaveState('dirty');
+    setSaveMessage('Unsaved changes');
   };
 
   const handleAddStory = async () => {
@@ -204,6 +289,11 @@ const App = () => {
     if (activeStoryId === id) setActiveStoryId(remaining[0].id);
   };
 
+  const handleUpdateStory = (updatedStory) => {
+    if (!updatedStory?.id) return;
+    setStories((prev) => prev.map((story) => (story.id === updatedStory.id ? updatedStory : story)));
+  };
+
   const handleSelectStory = (id) => {
     setActiveStoryId(id);
     setStoryUnlocked(true);
@@ -222,9 +312,8 @@ const App = () => {
   };
 
   const handleThemeToggle = () => {
-    const ids = Object.keys(THEMES);
-    const idx = ids.indexOf(currentThemeId);
-    const next = ids[(idx + 1) % ids.length];
+    const idx = THEME_IDS.indexOf(currentThemeId);
+    const next = THEME_IDS[(idx + 1) % THEME_IDS.length] || 'nexus';
     setCurrentThemeId(next);
   };
 
@@ -233,12 +322,24 @@ const App = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
-    const t = window.setTimeout(() => {
-      syncStoriesForUser(stories).catch(() => {});
-    }, 800);
+    if (!user || !activeStory) return;
+    if (saveState !== 'dirty') return;
+
+    const t = window.setTimeout(async () => {
+      setSaveState('saving');
+      setSaveMessage('Saving...');
+      try {
+        await saveStoryForUser(activeStory);
+        setSaveState('saved');
+        setSaveMessage('Saved');
+      } catch {
+        setSaveState('error');
+        setSaveMessage('Save failed');
+      }
+    }, 3000);
+
     return () => window.clearTimeout(t);
-  }, [stories, user]);
+  }, [stories, user, activeStory, saveState]);
 
   useEffect(() => {
     if (!user) return;
@@ -321,10 +422,13 @@ const App = () => {
             onSelectStory={handleSelectStory}
             onDeleteStory={handleDeleteStory}
             onAddStory={handleAddStory}
+            onUpdateStory={handleUpdateStory}
           />
         )}
 
-        {activeTab === AppTab.WRITE && <Editor storyState={activeStory} setStoryState={updateCurrentStory} />}
+        {activeTab === AppTab.WRITE && (
+          <Editor storyState={activeStory} setStoryState={updateCurrentStory} saveStatus={saveMessage} />
+        )}
 
         {activeTab === AppTab.CHARACTERS && (
           renderWithChapterRail(
@@ -356,6 +460,13 @@ const App = () => {
               currentChapter={activeChapter}
               currentTheme={currentTheme}
               chapters={activeStory.chapters}
+              plotConsensusCache={activeStory.plotConsensusCache}
+              setPlotConsensusCache={(updater) =>
+                updateCurrentStory((s) => ({
+                  ...s,
+                  plotConsensusCache: typeof updater === 'function' ? updater(s.plotConsensusCache) : updater,
+                }))
+              }
             />
           )
         )}

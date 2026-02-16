@@ -48,6 +48,22 @@ export interface PlotPoint {
   chapterId?: string;
 }
 
+export interface PlotEstimatePoint {
+  title: string;
+  description: string;
+  tensionLevel: number;
+}
+
+export interface PlotEstimateResponse {
+  runs: PlotEstimatePoint[][];
+  consensus: PlotEstimatePoint[];
+}
+
+export interface StoryPlotConsensusCache {
+  byChapter: Record<string, PlotEstimateResponse>;
+  all: PlotEstimateResponse;
+}
+
 export interface StoryState {
   id: string;
   title: string;
@@ -56,6 +72,17 @@ export interface StoryState {
   characters: Character[];
   locations: Location[];
   plotPoints: PlotPoint[];
+  plotConsensusCache?: StoryPlotConsensusCache;
+  genre?: string;
+  aiReviews?: Array<{
+    id: string;
+    createdAt: string;
+    genre: string;
+    verdict: string;
+    criticalReview: string;
+    priorityFixes: string[];
+    riskScore: number;
+  }>;
 }
 
 export interface AnalysisResult {
@@ -65,7 +92,7 @@ export interface AnalysisResult {
   severity?: 'info' | 'warning' | 'error';
 }
 
-export type ThemeId = 'nexus' | 'grimm' | 'nebula';
+export type ThemeId = 'nexus' | 'grimm' | 'nebula' | 'solstice' | 'fjord';
 
 export interface Theme {
   id: ThemeId;

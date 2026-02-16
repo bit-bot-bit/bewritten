@@ -248,4 +248,21 @@ export const Schema = {
       },
     },
   },
+  storyInsights: {
+    type: Type.OBJECT,
+    properties: {
+      synopsis: { type: Type.STRING },
+      backCover: { type: Type.STRING },
+      detailedNotes: { type: Type.STRING },
+    },
+  },
+  storyReview: {
+    type: Type.OBJECT,
+    properties: {
+      verdict: { type: Type.STRING },
+      criticalReview: { type: Type.STRING },
+      priorityFixes: { type: Type.ARRAY, items: { type: Type.STRING } },
+      riskScore: { type: Type.NUMBER },
+    },
+  },
 };

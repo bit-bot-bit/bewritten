@@ -85,7 +85,8 @@ export const AccountBackupSettings = ({ onRestoreComplete }) => {
           <select
             value={restoreMode}
             onChange={(e) => setRestoreMode(e.target.value)}
-            className="themed-select w-full mt-1 border border-border rounded-lg px-3 py-2 bg-card text-main"
+            className="themed-control w-full mt-1 border border-border rounded-lg px-3 py-2 text-main"
+            style={{ color: 'var(--color-text-main)', backgroundColor: 'var(--color-surface)' }}
           >
             <option value="merge">Merge with existing stories</option>
             <option value="replace">Replace existing stories</option>
@@ -118,4 +119,3 @@ export const AccountBackupSettings = ({ onRestoreComplete }) => {
     </section>
   );
 };
-

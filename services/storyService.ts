@@ -71,6 +71,17 @@ export async function changeCurrentUserPassword(currentPassword, newPassword) {
   return data.user;
 }
 
+export async function fetchUserSettings() {
+  const data = await apiGet('/user/settings');
+  return data.settings;
+}
+
+export async function saveUserSettings(settings, options = {}) {
+  const keepExistingKey = options.keepExistingKey ?? true;
+  const data = await apiPut('/user/settings', { settings, keepExistingKey });
+  return data.settings;
+}
+
 export async function listStories() {
   const data = await apiGet('/stories');
   return data.stories;

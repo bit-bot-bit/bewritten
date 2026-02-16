@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { getMonetizationConfig, getUserCreditStatus, getUserTier } from './monetization.js';
 
+const ALLOWED_THEME_IDS = new Set(['nexus', 'grimm', 'nebula', 'solstice', 'fjord']);
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -58,6 +60,7 @@ export function getDefaultUserAiSettings() {
     tier: 'byok',
     credits: null,
     monetizationEnabled: false,
+    themeId: 'nexus',
   };
 }
 
@@ -73,7 +76,7 @@ export async function getUserAiSettings(email, options = {}) {
   const { includeSecret = false } = options;
   const db = getDb();
   const row = await db('user_settings')
-    .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url')
+    .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url', 'theme_id')
     .where('user_email', email)
     .first();
   const availableTargets = await getAvailableTargetsForUser(email);
@@ -93,6 +96,8 @@ export async function getUserAiSettings(email, options = {}) {
   const plainKey = decryptSecret(row.ai_api_key || '');
   const target = row.ai_target || 'gemini';
   const aiTarget = availableTargets.includes(target) ? target : availableTargets[0];
+  const themeIdRaw = String(row.theme_id || '').trim().toLowerCase();
+  const themeId = ALLOWED_THEME_IDS.has(themeIdRaw) ? themeIdRaw : 'nexus';
   return {
     aiTarget,
     aiModel: row.ai_model || '',
@@ -104,6 +109,7 @@ export async function getUserAiSettings(email, options = {}) {
     tier,
     credits,
     monetizationEnabled: Boolean(credits?.monetizationEnabled),
+    themeId,
   };
 }
 
@@ -119,6 +125,8 @@ export async function saveUserAiSettings(email, next, options = {}) {
   if (!availableTargets.includes(merged.aiTarget)) {
     throw new Error('AI target is not allowed for your tier');
   }
+  const themeIdRaw = String(merged.themeId || current.themeId || 'nexus').trim().toLowerCase();
+  const themeId = ALLOWED_THEME_IDS.has(themeIdRaw) ? themeIdRaw : 'nexus';
 
   const incomingKey = typeof next.aiApiKey === 'string' ? next.aiApiKey.trim() : null;
   let resolvedApiKey = current.aiApiKey || '';
@@ -136,6 +144,7 @@ export async function saveUserAiSettings(email, next, options = {}) {
       ai_api_key: storedApiKey,
       ai_model: merged.aiModel || '',
       ai_base_url: merged.aiBaseUrl || '',
+      theme_id: themeId,
       created_at: nowIso(),
       updated_at: nowIso(),
     })
@@ -145,6 +154,7 @@ export async function saveUserAiSettings(email, next, options = {}) {
       ai_api_key: storedApiKey,
       ai_model: merged.aiModel || '',
       ai_base_url: merged.aiBaseUrl || '',
+      theme_id: themeId,
       updated_at: nowIso(),
     });
 
