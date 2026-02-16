@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlotPoint, Character, Chapter, Theme } from '../types';
+import { PlotPoint, Character, Chapter, Theme, StoryPlotConsensusCache, PlotEstimateResponse } from '../types';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Plus, Trash2, Zap, ScanSearch, Loader2, BrainCircuit, Layers3 } from 'lucide-react';
 import { suggestNextPlotPoint, extractPlotPointsFromText, estimatePlotConsensus } from '../services/geminiService';
@@ -11,18 +11,9 @@ interface TimelineManagerProps {
   currentChapter: Chapter;
   currentTheme: Theme;
   chapters: Chapter[];
+  plotConsensusCache?: StoryPlotConsensusCache;
+  setPlotConsensusCache: (updater: StoryPlotConsensusCache | ((prev?: StoryPlotConsensusCache) => StoryPlotConsensusCache)) => void;
 }
-
-type PlotEstimatePoint = {
-  title: string;
-  description: string;
-  tensionLevel: number;
-};
-
-type PlotEstimateResponse = {
-  runs: PlotEstimatePoint[][];
-  consensus: PlotEstimatePoint[];
-};
 
 type RunView = 'consensus' | 'run1' | 'run2' | 'run3';
 type ScopeView = 'chapter' | 'all';
@@ -42,14 +33,22 @@ const getEstimateByView = (data: PlotEstimateResponse, runView: RunView) => {
 };
 
 const clampTension = (value: number) => Math.max(1, Math.min(10, Number(value || 5)));
+const EMPTY_ESTIMATE: PlotEstimateResponse = { runs: [[], [], []], consensus: [] };
 
-export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, setPlotPoints, characters, currentChapter, currentTheme, chapters }) => {
+export const TimelineManager: React.FC<TimelineManagerProps> = ({
+  plotPoints,
+  setPlotPoints,
+  characters,
+  currentChapter,
+  currentTheme,
+  chapters,
+  plotConsensusCache,
+  setPlotConsensusCache,
+}) => {
   const [isScanning, setIsScanning] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
   const [runView, setRunView] = useState<RunView>('consensus');
   const [scopeView, setScopeView] = useState<ScopeView>('chapter');
-  const [chapterEstimate, setChapterEstimate] = useState<PlotEstimateResponse>({ runs: [[], [], []], consensus: [] });
-  const [allEstimate, setAllEstimate] = useState<PlotEstimateResponse>({ runs: [[], [], []], consensus: [] });
 
   const pointsForChapter = plotPoints.filter((p) => (p.chapterId || '') === currentChapter.id);
   const listPoints = pointsForChapter.sort((a, b) => a.order - b.order);
@@ -135,8 +134,19 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
     setIsEstimating(true);
     try {
       const estimation = await estimatePlotConsensus(text, runExistingPoints, chapterTitle);
-      if (isAll) setAllEstimate(estimation);
-      else setChapterEstimate(estimation);
+      setPlotConsensusCache((prev) => {
+        const current = prev || { byChapter: {}, all: EMPTY_ESTIMATE };
+        if (isAll) {
+          return { ...current, all: estimation };
+        }
+        return {
+          ...current,
+          byChapter: {
+            ...(current.byChapter || {}),
+            [currentChapter.id]: estimation,
+          },
+        };
+      });
       setRunView('consensus');
       setScopeView(nextScope);
     } catch (e) {
@@ -147,6 +157,8 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({ plotPoints, se
     }
   };
 
+  const chapterEstimate = plotConsensusCache?.byChapter?.[currentChapter.id] || EMPTY_ESTIMATE;
+  const allEstimate = plotConsensusCache?.all || EMPTY_ESTIMATE;
   const activeEstimate = scopeView === 'all' ? allEstimate : chapterEstimate;
   const estimatePoints = getEstimateByView(activeEstimate, runView);
   const hasEstimate = estimatePoints.length > 0;

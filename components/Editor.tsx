@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, Chevr
 import { ExportModal } from './ExportModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { generateId } from '../utils/id';
+import { formatTitleCase } from '../utils/titleCase';
 
 const BOOK_FORMATS = [
   { id: 'standard', name: 'Standard (6" x 9")', width: '6in', heightPx: 864, pageCss: '@page { size: 6in 9in; margin: 1in; }' },
@@ -12,12 +13,15 @@ const BOOK_FORMATS = [
 ];
 
 const DPI = 96;
-const PREVIEW_FONT_PX = 18;
-const PREVIEW_LINE_HEIGHT = 1.625;
 const PREVIEW_LAYOUT_BY_FORMAT = {
   standard: { marginPx: 96, marginCss: '1in' },
   a5: { marginPx: Math.round((20 / 25.4) * DPI), marginCss: '20mm' },
   pocket: { marginPx: 48, marginCss: '0.5in' },
+};
+const PREVIEW_TYPOGRAPHY_BY_FORMAT = {
+  standard: { fontPx: 15.5, lineHeight: 1.5, chapterLabelPx: 11, chapterTitlePx: 46, chapterGapPx: 34, firstPageHeadingLines: 5 },
+  a5: { fontPx: 14.5, lineHeight: 1.52, chapterLabelPx: 10, chapterTitlePx: 40, chapterGapPx: 30, firstPageHeadingLines: 5 },
+  pocket: { fontPx: 13.5, lineHeight: 1.5, chapterLabelPx: 9, chapterTitlePx: 34, chapterGapPx: 24, firstPageHeadingLines: 5 },
 };
 
 function widthToPx(width) {
@@ -28,22 +32,22 @@ function widthToPx(width) {
   return parseFloat(value) || 0;
 }
 
-function getMeasureContext() {
+function getMeasureContext(fontPx) {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  ctx.font = `${PREVIEW_FONT_PX}px Merriweather, serif`;
+  ctx.font = `${fontPx}px Merriweather, serif`;
   return ctx;
 }
 
-function wrapParagraphByWidth(paragraph, maxWidthPx, ctx) {
+function wrapParagraphByWidth(paragraph, maxWidthPx, ctx, fontPx) {
   if (!paragraph.trim()) return [''];
   const words = paragraph.split(/\s+/);
   const lines = [];
   let current = '';
 
-  const measure = (text) => (ctx ? ctx.measureText(text).width : text.length * (PREVIEW_FONT_PX * 0.55));
+  const measure = (text) => (ctx ? ctx.measureText(text).width : text.length * (fontPx * 0.55));
 
   const pushWordHardWrapped = (word) => {
     let chunk = '';
@@ -86,19 +90,19 @@ function wrapParagraphByWidth(paragraph, maxWidthPx, ctx) {
   return lines;
 }
 
-function paginateContent(content, format) {
+function paginateContent(content, format, typography) {
   const marginPx = PREVIEW_LAYOUT_BY_FORMAT[format.id]?.marginPx ?? 96;
   const pageWidthPx = widthToPx(format.width);
   const contentWidthPx = Math.max(80, pageWidthPx - marginPx * 2);
   const contentHeightPx = Math.max(120, format.heightPx - marginPx * 2);
-  const lineHeightPx = PREVIEW_FONT_PX * PREVIEW_LINE_HEIGHT;
+  const lineHeightPx = typography.fontPx * typography.lineHeight;
   const linesPerPage = Math.max(1, Math.floor(contentHeightPx / lineHeightPx) - 1);
-  const firstPageHeadingLines = 4;
-  const ctx = getMeasureContext();
+  const firstPageHeadingLines = typography.firstPageHeadingLines;
+  const ctx = getMeasureContext(typography.fontPx);
 
   const paragraphs = content.split('\n');
   const lines = [];
-  for (const paragraph of paragraphs) lines.push(...wrapParagraphByWidth(paragraph, contentWidthPx, ctx));
+  for (const paragraph of paragraphs) lines.push(...wrapParagraphByWidth(paragraph, contentWidthPx, ctx, typography.fontPx));
 
   if (lines.length === 0) return [''];
 
@@ -112,7 +116,7 @@ function paginateContent(content, format) {
   return pages.length > 0 ? pages : [''];
 }
 
-export const Editor = ({ storyState, setStoryState }) => {
+export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   const detectMobile = () => (typeof window !== 'undefined' ? window.innerWidth < 900 : false);
   const [analysis, setAnalysis] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -126,7 +130,11 @@ export const Editor = ({ storyState, setStoryState }) => {
 
   const currentChapter = storyState.chapters.find((c) => c.id === storyState.currentChapterId) || storyState.chapters[0];
   const previewLayout = PREVIEW_LAYOUT_BY_FORMAT[selectedFormat.id] ?? { marginPx: 96, marginCss: '1in' };
-  const pagedContent = useMemo(() => paginateContent(currentChapter.content, selectedFormat), [currentChapter.content, selectedFormat]);
+  const previewTypography = PREVIEW_TYPOGRAPHY_BY_FORMAT[selectedFormat.id] || PREVIEW_TYPOGRAPHY_BY_FORMAT.standard;
+  const pagedContent = useMemo(
+    () => paginateContent(currentChapter.content, selectedFormat, previewTypography),
+    [currentChapter.content, selectedFormat, previewTypography]
+  );
   const pageWidthPx = widthToPx(selectedFormat.width);
   const maxPreviewWidth = Math.max(180, viewportWidth - (isMobile ? 72 : 120));
   const previewScale = Math.min(1, maxPreviewWidth / pageWidthPx);
@@ -165,22 +173,64 @@ export const Editor = ({ storyState, setStoryState }) => {
   };
 
   const updateStoryTitle = (newTitle) => setStoryState((prev) => ({ ...prev, title: newTitle }));
+  const normalizeStoryTitle = () => {
+    const next = formatTitleCase(storyState.title);
+    if (next && next !== storyState.title) updateStoryTitle(next);
+  };
+  const normalizeChapterTitle = () => {
+    const next = formatTitleCase(currentChapter.title);
+    if (next && next !== currentChapter.title) updateChapterTitle(next);
+  };
 
   const handleEditorKeyDown = (e) => {
-    if (e.key !== 'Tab') return;
-    e.preventDefault();
-
     const textarea = e.currentTarget;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const value = currentChapter.content;
 
-    const nextValue = `${value.slice(0, start)}\t${value.slice(end)}`;
-    updateContent(nextValue);
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      const selected = value.slice(start, end);
+      const isWrapped = selected.length >= 2 && selected.startsWith('*') && selected.endsWith('*');
 
-    requestAnimationFrame(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + 1;
-    });
+      let nextValue = value;
+      let nextStart = start;
+      let nextEnd = end;
+
+      if (start !== end) {
+        if (isWrapped) {
+          const unwrapped = selected.slice(1, -1);
+          nextValue = `${value.slice(0, start)}${unwrapped}${value.slice(end)}`;
+          nextStart = start;
+          nextEnd = start + unwrapped.length;
+        } else {
+          nextValue = `${value.slice(0, start)}*${selected}*${value.slice(end)}`;
+          nextStart = start + 1;
+          nextEnd = end + 1;
+        }
+      } else {
+        nextValue = `${value.slice(0, start)}**${value.slice(end)}`;
+        nextStart = start + 1;
+        nextEnd = start + 1;
+      }
+
+      updateContent(nextValue);
+      requestAnimationFrame(() => {
+        textarea.selectionStart = nextStart;
+        textarea.selectionEnd = nextEnd;
+      });
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const nextValue = `${value.slice(0, start)}\t${value.slice(end)}`;
+      updateContent(nextValue);
+
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+      });
+    }
   };
 
   const addChapter = () => {
@@ -255,7 +305,10 @@ export const Editor = ({ storyState, setStoryState }) => {
       <div className="flex-1 h-full flex flex-col max-w-4xl mx-auto w-full relative">
         <div className="px-4 md:px-12 pt-6 md:pt-8 pb-4 flex flex-col gap-2">
           <div className="flex justify-between items-start">
-            <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors" />
+            <div className="flex items-center gap-3">
+              <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} onBlur={normalizeStoryTitle} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors" />
+              <span className="text-[11px] px-2 py-1 rounded border border-border text-muted bg-card/70">{saveStatus}</span>
+            </div>
 
             <div className="flex bg-surface rounded-lg p-1 border border-border">
               <button
@@ -279,12 +332,12 @@ export const Editor = ({ storyState, setStoryState }) => {
             </div>
           </div>
 
-          <input type="text" value={currentChapter.title} onChange={(e) => updateChapterTitle(e.target.value)} placeholder="Chapter Title" className="w-full bg-transparent text-2xl md:text-4xl font-serif font-bold text-main placeholder-muted outline-none border-b border-transparent focus:border-border transition-colors pb-2" />
+          <input type="text" value={currentChapter.title} onChange={(e) => updateChapterTitle(e.target.value)} onBlur={normalizeChapterTitle} placeholder="Chapter Title" className="w-full bg-transparent text-2xl md:text-4xl font-serif font-bold text-main placeholder-muted outline-none border-b border-transparent focus:border-border transition-colors pb-2" />
         </div>
 
         {viewMode === 'edit' ? (
           <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden">
-            <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} onKeyDown={handleEditorKeyDown} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={false} />
+            <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} onKeyDown={handleEditorKeyDown} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={true} autoCorrect="on" autoCapitalize="sentences" />
           </div>
         ) : (
           <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto overflow-x-hidden p-3 md:p-8 flex flex-col items-center">
@@ -332,8 +385,8 @@ export const Editor = ({ storyState, setStoryState }) => {
                         transform: `scale(${previewScale})`,
                         transformOrigin: 'top left',
                         padding: previewLayout.marginCss,
-                        fontSize: `${PREVIEW_FONT_PX}px`,
-                        lineHeight: PREVIEW_LINE_HEIGHT,
+                        fontSize: `${previewTypography.fontPx}px`,
+                        lineHeight: previewTypography.lineHeight,
                         fontFamily: 'Merriweather, Georgia, "Times New Roman", serif',
                         overflowWrap: 'anywhere',
                         wordBreak: 'break-word',
@@ -341,9 +394,9 @@ export const Editor = ({ storyState, setStoryState }) => {
                       }}
                     >
                       {idx === 0 && (
-                        <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
-                          <div style={{ fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.65, marginBottom: '0.9rem' }}>Chapter</div>
-                          <div style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.2 }}>{currentChapter.title?.trim() || 'Untitled Chapter'}</div>
+                        <div style={{ textAlign: 'center', marginBottom: `${previewTypography.chapterGapPx}px` }}>
+                          <div style={{ fontSize: `${previewTypography.chapterLabelPx}px`, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.65, marginBottom: '0.9rem' }}>Chapter</div>
+                          <div style={{ fontSize: `${previewTypography.chapterTitlePx}px`, fontWeight: 700, lineHeight: 1.2 }}>{currentChapter.title?.trim() || 'Untitled Chapter'}</div>
                         </div>
                       )}
                       {page || <span className="text-gray-400 italic">No content...</span>}

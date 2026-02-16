@@ -35,6 +35,38 @@ function toInt(value, fallback = 0) {
   return Math.round(num);
 }
 
+function sanitizeEstimatePoint(point) {
+  return {
+    title: asString(point?.title, 'Untitled Event'),
+    description: String(point?.description ?? ''),
+    tensionLevel: Math.max(1, Math.min(10, Number(point?.tensionLevel || 5))),
+  };
+}
+
+function sanitizeEstimateResponse(input) {
+  const runs = asArray(input?.runs).slice(0, 3).map((run) => asArray(run).map(sanitizeEstimatePoint));
+  while (runs.length < 3) runs.push([]);
+  const consensus = asArray(input?.consensus).map(sanitizeEstimatePoint);
+  return { runs, consensus };
+}
+
+function sanitizePlotConsensusCache(cache) {
+  if (!cache || typeof cache !== 'object') {
+    return { byChapter: {}, all: { runs: [[], [], []], consensus: [] } };
+  }
+  const byChapterRaw = cache.byChapter && typeof cache.byChapter === 'object' ? cache.byChapter : {};
+  const byChapter = {};
+  for (const [chapterId, estimate] of Object.entries(byChapterRaw)) {
+    const key = asString(chapterId, '');
+    if (!key) continue;
+    byChapter[key] = sanitizeEstimateResponse(estimate);
+  }
+  return {
+    byChapter,
+    all: sanitizeEstimateResponse(cache.all),
+  };
+}
+
 function sanitizeStory(story, index = 0) {
   const baseId = asString(story?.id, `restored-story-${index + 1}`);
   const chapters = asArray(story?.chapters)
@@ -54,6 +86,18 @@ function sanitizeStory(story, index = 0) {
   const currentChapterId = asString(story?.currentChapterId, firstChapterId);
   const chapterIds = new Set(safeChapters.map((c) => c.id));
 
+  const aiReviews = asArray(story?.aiReviews)
+    .slice(0, 3)
+    .map((entry, reviewIndex) => ({
+      id: asString(entry?.id, `${baseId}-review-${reviewIndex + 1}`),
+      createdAt: asString(entry?.createdAt, nowIso()),
+      genre: asString(entry?.genre, ''),
+      verdict: asString(entry?.verdict, ''),
+      criticalReview: String(entry?.criticalReview ?? ''),
+      priorityFixes: asArray(entry?.priorityFixes).map((fix) => asString(fix, '')).filter(Boolean).slice(0, 8),
+      riskScore: Math.max(0, Math.min(10, Number(entry?.riskScore || 0))),
+    }));
+
   return {
     id: baseId,
     title: asString(story?.title, `Recovered Story ${index + 1}`),
@@ -62,6 +106,9 @@ function sanitizeStory(story, index = 0) {
     characters: asArray(story?.characters),
     locations: asArray(story?.locations),
     plotPoints: asArray(story?.plotPoints),
+    plotConsensusCache: sanitizePlotConsensusCache(story?.plotConsensusCache),
+    genre: asString(story?.genre, ''),
+    aiReviews,
   };
 }
 
@@ -80,7 +127,7 @@ export async function buildAccountBackup(email) {
   const db = getDb();
   const stories = await listStoriesByUser(email);
   const userSettings = await db('user_settings')
-    .select('ai_target', 'ai_model', 'ai_base_url')
+    .select('ai_target', 'ai_model', 'ai_base_url', 'theme_id')
     .where('user_email', email)
     .first();
   const user = await db('users').select('tier').where('email', email).first();
@@ -92,6 +139,7 @@ export async function buildAccountBackup(email) {
       aiTarget: asString(userSettings?.ai_target, 'gemini'),
       aiModel: asString(userSettings?.ai_model, ''),
       aiBaseUrl: asString(userSettings?.ai_base_url, ''),
+      themeId: asString(userSettings?.theme_id, 'nexus'),
     },
   };
 
@@ -138,6 +186,7 @@ export function validateAndNormalizeBackup(backup) {
       aiTarget: asString(payload?.preferences?.aiTarget, ''),
       aiModel: asString(payload?.preferences?.aiModel, ''),
       aiBaseUrl: asString(payload?.preferences?.aiBaseUrl, ''),
+      themeId: asString(payload?.preferences?.themeId, ''),
     },
   };
 }
@@ -162,7 +211,8 @@ export async function restoreAccountBackup(email, backup, mode = 'merge') {
   const aiTarget = normalized.preferences.aiTarget;
   const aiModel = normalized.preferences.aiModel;
   const aiBaseUrl = normalized.preferences.aiBaseUrl;
-  if (aiTarget || aiModel || aiBaseUrl) {
+  const themeId = normalized.preferences.themeId;
+  if (aiTarget || aiModel || aiBaseUrl || themeId) {
     const row = await db('user_settings').select('ai_api_key').where('user_email', email).first();
     const existingEncryptedKey = asString(row?.ai_api_key, '');
     await db('user_settings')
@@ -172,6 +222,7 @@ export async function restoreAccountBackup(email, backup, mode = 'merge') {
         ai_api_key: existingEncryptedKey,
         ai_model: aiModel,
         ai_base_url: aiBaseUrl,
+        theme_id: themeId || 'nexus',
         created_at: nowIso(),
         updated_at: nowIso(),
       })
@@ -181,6 +232,7 @@ export async function restoreAccountBackup(email, backup, mode = 'merge') {
         ai_api_key: existingEncryptedKey,
         ai_model: aiModel,
         ai_base_url: aiBaseUrl,
+        theme_id: themeId || 'nexus',
         updated_at: nowIso(),
       });
   }
@@ -190,4 +242,3 @@ export async function restoreAccountBackup(email, backup, mode = 'merge') {
     mode: normalizedMode,
   };
 }
-

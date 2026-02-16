@@ -153,64 +153,78 @@ export const AdminSettings = ({ compact = false }) => {
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-main font-semibold">Monetization</div>
-          <label className="inline-flex items-center gap-2 text-sm text-muted">
+          <div>
+            <div className="text-main font-semibold">Monetization</div>
+            <div className="text-xs text-muted mt-1">Manage tier limits, shared runtime, and interface token costs.</div>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={Boolean(monetization?.enabled)}
               onChange={(e) => setMonetization((prev) => ({ ...(prev || {}), enabled: e.target.checked }))}
             />
-            Enabled
+            <span className={`px-2 py-1 rounded border text-xs font-semibold ${monetization?.enabled ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-border text-muted bg-surface'}`}>
+              {monetization?.enabled ? 'Enabled' : 'Disabled'}
+            </span>
           </label>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <label className="text-xs text-muted uppercase tracking-wide">Free Cap</label>
-            <input
-              type="number"
-              min="0"
-              value={monetization?.tiers?.free?.cap ?? 100}
-              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, free: { ...prev.tiers?.free, cap: Number(e.target.value || 0) } } }))}
-              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
-            />
+        <div className="border border-border rounded-xl overflow-hidden">
+          <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs uppercase tracking-wide text-muted border-b border-border bg-surface/40">
+            <div className="col-span-4">Tier</div>
+            <div className="col-span-4">Token Cap</div>
+            <div className="col-span-4">Daily Refill</div>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs text-muted uppercase tracking-wide">Free Daily Refill</label>
-            <input
-              type="number"
-              min="0"
-              value={monetization?.tiers?.free?.refillPerDay ?? 20}
-              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, free: { ...prev.tiers?.free, refillPerDay: Number(e.target.value || 0) } } }))}
-              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs text-muted uppercase tracking-wide">Pro Cap</label>
-            <input
-              type="number"
-              min="0"
-              value={monetization?.tiers?.pro?.cap ?? 2000}
-              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, pro: { ...prev.tiers?.pro, cap: Number(e.target.value || 0) } } }))}
-              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs text-muted uppercase tracking-wide">Pro Daily Refill</label>
-            <input
-              type="number"
-              min="0"
-              value={monetization?.tiers?.pro?.refillPerDay ?? 20}
-              onChange={(e) => setMonetization((prev) => ({ ...prev, tiers: { ...prev.tiers, pro: { ...prev.tiers?.pro, refillPerDay: Number(e.target.value || 0) } } }))}
-              className="themed-control w-full rounded-lg border px-3 py-2 text-main"
-            />
-          </div>
+          {[
+            { key: 'free', label: 'free' },
+            { key: 'pro', label: 'pro' },
+          ].map((tier) => (
+            <div key={tier.key} className="grid grid-cols-12 gap-2 px-4 py-3 border-b last:border-b-0 border-border items-center">
+              <div className="col-span-4">
+                <span className="px-2 py-1 rounded text-xs border border-border bg-surface text-main">{tier.label}</span>
+              </div>
+              <div className="col-span-4">
+                <input
+                  type="number"
+                  min="0"
+                  value={monetization?.tiers?.[tier.key]?.cap ?? (tier.key === 'free' ? 100 : 2000)}
+                  onChange={(e) =>
+                    setMonetization((prev) => ({
+                      ...prev,
+                      tiers: {
+                        ...prev.tiers,
+                        [tier.key]: { ...prev.tiers?.[tier.key], cap: Number(e.target.value || 0) },
+                      },
+                    }))
+                  }
+                  className="themed-control w-full rounded border px-2 py-1 text-sm text-main"
+                />
+              </div>
+              <div className="col-span-4">
+                <input
+                  type="number"
+                  min="0"
+                  value={monetization?.tiers?.[tier.key]?.refillPerDay ?? 20}
+                  onChange={(e) =>
+                    setMonetization((prev) => ({
+                      ...prev,
+                      tiers: {
+                        ...prev.tiers,
+                        [tier.key]: { ...prev.tiers?.[tier.key], refillPerDay: Number(e.target.value || 0) },
+                      },
+                    }))
+                  }
+                  className="themed-control w-full rounded border px-2 py-1 text-sm text-main"
+                />
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="border border-border rounded-xl p-4 space-y-3">
-          <div className="text-sm font-semibold text-main">Shared Key Runtime (Admin Only)</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-2">
+          <div className="text-sm font-semibold text-main">Shared Runtime</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
               <label className="text-xs text-muted uppercase tracking-wide">Target</label>
               <select
                 value={monetization?.shared?.target || 'gemini'}
@@ -222,7 +236,7 @@ export const AdminSettings = ({ compact = false }) => {
                 <option value="disabled">Disabled</option>
               </select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1 md:col-span-2">
               <label className="text-xs text-muted uppercase tracking-wide">Model</label>
               <input
                 value={monetization?.shared?.model || ''}
@@ -230,7 +244,7 @@ export const AdminSettings = ({ compact = false }) => {
                 className="themed-control w-full rounded-lg border px-3 py-2 text-main"
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-1 md:col-span-3">
               <label className="text-xs text-muted uppercase tracking-wide">Base URL (OpenAI-compatible)</label>
               <input
                 value={monetization?.shared?.baseUrl || ''}
@@ -264,29 +278,32 @@ export const AdminSettings = ({ compact = false }) => {
           />
         </div>
 
-        <div className="space-y-2">
-          <div className="text-sm font-semibold text-main">Interface Token Costs (Estimate Per Action)</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {(data?.monetizationDefaults?.knownTasks || Object.keys(monetization?.taskCosts || {})).map((task) => (
-              <label key={task} className="text-xs text-muted space-y-1">
-                <div>{task}</div>
+        <div className="border border-border rounded-xl overflow-hidden">
+          <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs uppercase tracking-wide text-muted border-b border-border bg-surface/40">
+            <div className="col-span-8">Interface Token Cost</div>
+            <div className="col-span-4">Cost</div>
+          </div>
+          {(data?.monetizationDefaults?.knownTasks || Object.keys(monetization?.taskCosts || {})).map((task) => (
+            <div key={task} className="grid grid-cols-12 gap-2 px-4 py-2 border-b last:border-b-0 border-border items-center">
+              <div className="col-span-8 text-sm text-main break-all">{task}</div>
+              <div className="col-span-4">
                 <input
                   type="number"
                   min="0"
                   value={monetization?.taskCosts?.[task] ?? 0}
                   onChange={(e) => setMonetization((prev) => ({ ...prev, taskCosts: { ...prev.taskCosts, [task]: Number(e.target.value || 0) } }))}
-                  className="themed-control w-full rounded border px-2 py-1 text-main"
+                  className="themed-control w-full rounded border px-2 py-1 text-sm text-main"
                 />
-              </label>
-            ))}
-          </div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div>
+        <div className="pt-1">
           <button
             onClick={saveMonetization}
             disabled={isSaving}
-            className="px-4 py-2 rounded-lg bg-accent text-white hover:brightness-110 disabled:opacity-70"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent text-white font-semibold border border-accent/80 shadow-md shadow-accent/25 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-accent/60 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             Save Monetization
           </button>

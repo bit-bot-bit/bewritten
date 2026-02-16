@@ -52,3 +52,22 @@ export async function generateStoryBlurb(story) {
   const data = await apiPost('/ai/blurb', { story, storyId: story?.id || null });
   return data.blurb || '';
 }
+
+export async function generateStoryInsights(story, focus = 'all') {
+  const data = await apiPost('/ai/story-insights', { story, focus, storyId: story?.id || null });
+  return data.insights || {
+    synopsis: '',
+    backCover: '',
+    detailedNotes: '',
+  };
+}
+
+export async function generateStoryReview(story, genre = '') {
+  const data = await apiPost('/ai/story-review', { story, genre, storyId: story?.id || null });
+  return data.review || {
+    verdict: '',
+    criticalReview: '',
+    priorityFixes: [],
+    riskScore: 0,
+  };
+}

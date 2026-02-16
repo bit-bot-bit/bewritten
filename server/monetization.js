@@ -12,6 +12,8 @@ const KNOWN_TASKS = [
   'extract-world',
   'extract-plot',
   'plot-consensus',
+  'story-insights',
+  'story-review',
   'chat',
   'layout-css',
   'blurb',
@@ -31,10 +33,18 @@ const DEFAULT_TASK_COSTS = {
   'extract-world': 10,
   'extract-plot': 10,
   'plot-consensus': 24,
+  'story-insights': 18,
+  'story-review': 20,
   chat: 6,
   'layout-css': 8,
   blurb: 8,
   default: 10,
+};
+
+const TASK_SIZE_MULTIPLIERS = {
+  short: 1,
+  medium: 1.5,
+  long: 2,
 };
 
 function nowIso() {
@@ -322,14 +332,18 @@ export async function getUserCreditStatus(email) {
   };
 }
 
-export async function chargeTokensForTask(email, task) {
+export async function chargeTokensForTask(email, task, options = {}) {
   const cfg = await getMonetizationConfig();
   const tier = await getUserTier(email);
   const taskName = String(task || '').trim();
-  const taskCost = clampInt(cfg.taskCosts[taskName] ?? cfg.taskCosts.default ?? DEFAULT_TASK_COSTS.default, 0, 1000000);
+  const sizeBucketRaw = String(options.sizeBucket || 'short').toLowerCase();
+  const sizeBucket = sizeBucketRaw === 'long' ? 'long' : sizeBucketRaw === 'medium' ? 'medium' : 'short';
+  const multiplier = TASK_SIZE_MULTIPLIERS[sizeBucket] || TASK_SIZE_MULTIPLIERS.short;
+  const baseCost = clampInt(cfg.taskCosts[taskName] ?? cfg.taskCosts.default ?? DEFAULT_TASK_COSTS.default, 0, 1000000);
+  const taskCost = clampInt(Math.ceil(baseCost * multiplier), 0, 1000000);
 
   if (!cfg.enabled || tier === 'byok' || taskCost <= 0 || cfg.shared?.target === 'disabled') {
-    return { charged: false, tier, cost: 0, remaining: null, limited: false };
+    return { charged: false, tier, cost: 0, baseCost, sizeBucket, remaining: null, limited: false };
   }
 
   const key = `credits:${email}`;
@@ -348,7 +362,7 @@ export async function chargeTokensForTask(email, task) {
       .where('user_email', email)
       .update({ balance: next, updated_at: nowIso(), last_refill_day: utcDay() });
 
-    return { charged: true, tier, cost: taskCost, remaining: next, limited: true };
+    return { charged: true, tier, cost: taskCost, baseCost, sizeBucket, remaining: next, limited: true };
   });
 }
 

@@ -371,6 +371,57 @@ export async function initApp() {
     }
   });
 
+  function estimateAiRequestSize(task, body = {}) {
+    const chunks = [];
+    const addChunk = (value, max = 0) => {
+      if (value === undefined || value === null) return;
+      const raw = typeof value === 'string' ? value : JSON.stringify(value);
+      if (!raw) return;
+      chunks.push(max > 0 ? raw.slice(0, max) : raw);
+    };
+
+    addChunk(body.query, 8000);
+    addChunk(body.text, 50000);
+    addChunk(body.storyText, 50000);
+    addChunk(body.description, 8000);
+    addChunk(body.storySummary, 12000);
+    addChunk(body.currentPoints, 12000);
+    addChunk(body.existingCharacters, 12000);
+    addChunk(body.existingLocations, 12000);
+    addChunk(body.existingPlotPoints, 12000);
+    addChunk(body.styleRequest, 4000);
+    addChunk(body.story, 12000);
+
+    if (task === 'chat' && body.state && typeof body.state === 'object') {
+      const state = body.state;
+      const chapters = Array.isArray(state.chapters) ? state.chapters : [];
+      const currentId = String(state.currentChapterId || '');
+      const chapterOrder = chapters
+        .map((chapter, index) => ({
+          id: String(chapter?.id || `chapter-${index + 1}`),
+          order: Number.isFinite(Number(chapter?.order)) ? Number(chapter.order) : index + 1,
+          content: String(chapter?.content || ''),
+        }))
+        .sort((a, b) => a.order - b.order);
+      let idx = chapterOrder.findIndex((chapter) => chapter.id === currentId);
+      if (idx < 0) idx = chapterOrder.length > 0 ? chapterOrder.length - 1 : -1;
+      const currentChapter = idx >= 0 ? chapterOrder[idx] : null;
+      const previousChapter = idx > 0 ? chapterOrder[idx - 1] : null;
+      addChunk(currentChapter?.content || '', 12000);
+      addChunk(previousChapter?.content || '', 8000);
+      addChunk(state.characters, 12000);
+      addChunk(state.locations, 12000);
+      addChunk(state.plotPoints, 12000);
+    } else {
+      addChunk(body.state, 20000);
+    }
+
+    const chars = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    if (chars <= 4000) return 'short';
+    if (chars <= 16000) return 'medium';
+    return 'long';
+  }
+
   async function handleAi(req, res, task, fn) {
     const storyId = req.body?.storyId || null;
     const actorEmail = req.auth?.email || null;
@@ -385,7 +436,8 @@ export async function initApp() {
         }
 
         try {
-          await chargeTokensForTask(actorEmail, task);
+          const sizeBucket = estimateAiRequestSize(task, req.body || {});
+          await chargeTokensForTask(actorEmail, task, { sizeBucket });
         } catch (e) {
           if (e?.code === 'INSUFFICIENT_TOKENS') {
             const status = await getUserCreditStatus(actorEmail).catch(() => null);
@@ -426,6 +478,79 @@ export async function initApp() {
         tensionLevel: Math.max(1, Math.min(10, Number(p?.tensionLevel || 5))),
       }))
       .filter((p) => p.title || p.description);
+
+  const truncateText = (value, max) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    if (text.length <= max) return text;
+    return `${text.slice(0, max)}...`;
+  };
+
+  const buildCoAuthorContext = (state) => {
+    const storyTitle = String(state?.title || '').trim() || 'Untitled Story';
+    const chapters = Array.isArray(state?.chapters) ? state.chapters.slice() : [];
+    const normalizedChapters = chapters
+      .map((chapter, index) => ({
+        id: String(chapter?.id || `chapter-${index + 1}`),
+        title: String(chapter?.title || `Chapter ${index + 1}`),
+        content: String(chapter?.content || ''),
+        order: Number.isFinite(Number(chapter?.order)) ? Number(chapter.order) : index + 1,
+      }))
+      .sort((a, b) => a.order - b.order);
+
+    const currentChapterId = String(state?.currentChapterId || '');
+    let currentIndex = normalizedChapters.findIndex((chapter) => chapter.id === currentChapterId);
+    if (currentIndex < 0) currentIndex = normalizedChapters.length > 0 ? normalizedChapters.length - 1 : -1;
+
+    const currentChapter = currentIndex >= 0 ? normalizedChapters[currentIndex] : null;
+    const previousChapter = currentIndex > 0 ? normalizedChapters[currentIndex - 1] : null;
+
+    const characters = Array.isArray(state?.characters) ? state.characters : [];
+    const characterBrief = characters.slice(0, 12).map((character) => {
+      const name = String(character?.name || 'Unnamed');
+      const role = String(character?.role || 'Support');
+      const desc = truncateText(character?.description, 120);
+      const traits = Array.isArray(character?.traits) ? character.traits.slice(0, 3).join(', ') : '';
+      return `${name} (${role})${traits ? ` [${traits}]` : ''}${desc ? `: ${desc}` : ''}`;
+    });
+
+    const locations = Array.isArray(state?.locations) ? state.locations : [];
+    const worldBrief = locations.slice(0, 12).map((location) => {
+      const name = String(location?.name || 'Unknown Place');
+      const desc = truncateText(location?.description || location?.atmosphere || '', 110);
+      const history = Array.isArray(location?.history) ? location.history : [];
+      const recent = history
+        .slice(-2)
+        .map((h) => truncateText(h?.description, 80))
+        .filter(Boolean)
+        .join(' | ');
+      return `${name}${desc ? `: ${desc}` : ''}${recent ? ` (Recent: ${recent})` : ''}`;
+    });
+
+    const plotPoints = Array.isArray(state?.plotPoints) ? state.plotPoints : [];
+    const chapterPlot = plotPoints
+      .filter((point) => String(point?.chapterId || '') === String(currentChapter?.id || '__none__'))
+      .slice(0, 8)
+      .map((point) => `${point?.title || 'Untitled'} [Tension ${Number(point?.tensionLevel || 5)}]: ${truncateText(point?.description, 110)}`);
+    const recentGlobalPlot = plotPoints
+      .slice(-8)
+      .map((point) => `${point?.title || 'Untitled'} [Tension ${Number(point?.tensionLevel || 5)}]`);
+
+    const currentText = truncateText(currentChapter?.content || '', 9000);
+    const previousText = truncateText(previousChapter?.content || '', 5000);
+
+    return {
+      storyTitle,
+      currentChapterTitle: currentChapter?.title || 'No chapter selected',
+      previousChapterTitle: previousChapter?.title || '',
+      currentText,
+      previousText,
+      characterBrief,
+      worldBrief,
+      chapterPlot,
+      recentGlobalPlot,
+    };
+  };
 
   const buildConsensus = (runs = []) => {
     const normalizedRuns = runs.map((run) => normalizePlotPoints(run));
@@ -553,7 +678,35 @@ export async function initApp() {
   app.post('/api/ai/chat', requireAuth, requirePasswordFresh, (req, res) =>
     handleAi(req, res, 'chat', async () => {
       const { query = '', state } = req.body;
-      const prompt = `You are a practical writing co-author. Story:${state?.title || ''} Query:${query}`;
+      const ctx = buildCoAuthorContext(state || {});
+      const prompt = [
+        'You are a practical writing co-author.',
+        'Use only the context below and respond with concise, useful guidance for drafting prose.',
+        '',
+        `Story Title: ${ctx.storyTitle}`,
+        `Current Chapter: ${ctx.currentChapterTitle}`,
+        `Previous Chapter: ${ctx.previousChapterTitle || 'N/A (this is likely the first chapter)'}`,
+        '',
+        'Need-to-Know Characters:',
+        ctx.characterBrief.length ? ctx.characterBrief.map((line) => `- ${line}`).join('\n') : '- None provided',
+        '',
+        'Need-to-Know World:',
+        ctx.worldBrief.length ? ctx.worldBrief.map((line) => `- ${line}`).join('\n') : '- None provided',
+        '',
+        'Current Chapter Plot Points:',
+        ctx.chapterPlot.length ? ctx.chapterPlot.map((line) => `- ${line}`).join('\n') : '- None extracted for current chapter',
+        '',
+        'Recent Global Plot Points:',
+        ctx.recentGlobalPlot.length ? ctx.recentGlobalPlot.map((line) => `- ${line}`).join('\n') : '- None provided',
+        '',
+        'Previous Chapter Text (for continuity only):',
+        ctx.previousText || '[No previous chapter text]',
+        '',
+        'Current Chapter Text (primary context):',
+        ctx.currentText || '[No current chapter text]',
+        '',
+        `User Query: ${query}`,
+      ].join('\n');
       const reply = await runTextPrompt({ prompt, fallback: 'Focus next scene on conflict, decision, and consequence.', actorEmail: req.auth.email });
       return { reply };
     })
@@ -577,6 +730,118 @@ export async function initApp() {
       const prompt = `Write a back-cover blurb under 150 words for this story: ${JSON.stringify(story || {})}`;
       const blurb = await runTextPrompt({ prompt, fallback: 'A gripping story unfolds as hidden truths collide with impossible choices.', actorEmail: req.auth.email });
       return { blurb };
+    })
+  );
+
+  app.post('/api/ai/story-insights', requireAuth, requirePasswordFresh, (req, res) =>
+    handleAi(req, res, 'story-insights', async () => {
+      const story = req.body?.story || {};
+      const focusRaw = String(req.body?.focus || 'all').trim().toLowerCase();
+      const focusMap = {
+        all: 'all',
+        synopsis: 'synopsis',
+        backcover: 'backcover',
+        'back-cover': 'backcover',
+        detailednotes: 'details',
+        details: 'details',
+      };
+      const focus = focusMap[focusRaw] || 'all';
+      const title = String(story?.title || 'Untitled Story').trim() || 'Untitled Story';
+      const chapters = Array.isArray(story?.chapters) ? story.chapters : [];
+      const manuscript = chapters
+        .map((chapter, idx) => {
+          const chapterTitle = String(chapter?.title || `Chapter ${idx + 1}`);
+          const content = String(chapter?.content || '').trim();
+          return `[${chapterTitle}]\n${content}`;
+        })
+        .join('\n\n')
+        .slice(0, 70000);
+      const characters = JSON.stringify(Array.isArray(story?.characters) ? story.characters.slice(0, 40) : []);
+      const locations = JSON.stringify(Array.isArray(story?.locations) ? story.locations.slice(0, 40) : []);
+      const plotPoints = JSON.stringify(Array.isArray(story?.plotPoints) ? story.plotPoints.slice(0, 80) : []);
+
+      const prompt = [
+        'You are a fiction editorial assistant.',
+        `Return JSON with keys: synopsis, backCover, detailedNotes.`,
+        'Requirements:',
+        '- synopsis: 120-220 words.',
+        '- backCover: 90-150 words in compelling back-cover style, no spoilers beyond midpoint.',
+        '- detailedNotes: 6-10 concise bullets about themes, hooks, genre fit, strengths, and revision opportunities.',
+        `Current user focus: ${focus}. Prioritize this focus in quality, but still return all keys.`,
+        '',
+        `Story Title: ${title}`,
+        `Characters: ${characters}`,
+        `World: ${locations}`,
+        `Plot Points: ${plotPoints}`,
+        '',
+        'Manuscript:',
+        manuscript || '[No chapter content provided]',
+      ].join('\n');
+
+      const insights = await runJsonPrompt({
+        prompt,
+        schema: Schema.storyInsights,
+        fallback: {
+          synopsis: 'No synopsis available yet.',
+          backCover: 'No back-cover text available yet.',
+          detailedNotes: '- Add more chapter content to generate detailed notes.',
+        },
+        actorEmail: req.auth.email,
+      });
+      return { insights };
+    })
+  );
+
+  app.post('/api/ai/story-review', requireAuth, requirePasswordFresh, (req, res) =>
+    handleAi(req, res, 'story-review', async () => {
+      const story = req.body?.story || {};
+      const genre = String(req.body?.genre || '').trim() || 'unspecified';
+      const title = String(story?.title || 'Untitled Story').trim() || 'Untitled Story';
+      const chapters = Array.isArray(story?.chapters) ? story.chapters : [];
+      const manuscript = chapters
+        .map((chapter, idx) => {
+          const chapterTitle = String(chapter?.title || `Chapter ${idx + 1}`);
+          const content = String(chapter?.content || '').trim();
+          return `[${chapterTitle}]\n${content}`;
+        })
+        .join('\n\n')
+        .slice(0, 70000);
+      const characters = JSON.stringify(Array.isArray(story?.characters) ? story.characters.slice(0, 40) : []);
+      const locations = JSON.stringify(Array.isArray(story?.locations) ? story.locations.slice(0, 40) : []);
+      const plotPoints = JSON.stringify(Array.isArray(story?.plotPoints) ? story.plotPoints.slice(0, 80) : []);
+
+      const prompt = [
+        'You are a strict senior fiction editor.',
+        'Return JSON only with keys: verdict, criticalReview, priorityFixes, riskScore.',
+        'Style constraints:',
+        '- Be candid and critical, not passively positive.',
+        '- Include concrete weaknesses before praise.',
+        '- Avoid generic compliments.',
+        '- riskScore is 1-10 where 10 means high manuscript risk.',
+        '- priorityFixes must be 5-8 actionable items.',
+        '',
+        `Genre: ${genre}`,
+        `Story Title: ${title}`,
+        `Characters: ${characters}`,
+        `World: ${locations}`,
+        `Plot Points: ${plotPoints}`,
+        '',
+        'Manuscript:',
+        manuscript || '[No chapter content provided]',
+      ].join('\n');
+
+      const review = await runJsonPrompt({
+        prompt,
+        schema: Schema.storyReview,
+        fallback: {
+          verdict: 'Insufficient manuscript data for a rigorous review.',
+          criticalReview: 'Provide more chapter content to enable a meaningful critical review.',
+          priorityFixes: ['Add at least one complete chapter before requesting review.'],
+          riskScore: 7,
+        },
+        actorEmail: req.auth.email,
+      });
+      return { review };
     })
   );
 
