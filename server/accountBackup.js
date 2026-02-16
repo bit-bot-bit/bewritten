@@ -67,6 +67,69 @@ function sanitizePlotConsensusCache(cache) {
   };
 }
 
+function sanitizeStorySnapshot(snapshot, fallbackStory, index = 0) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return {
+      title: fallbackStory.title,
+      chapters: fallbackStory.chapters,
+      currentChapterId: fallbackStory.currentChapterId,
+      characters: fallbackStory.characters,
+      locations: fallbackStory.locations,
+      plotPoints: fallbackStory.plotPoints,
+      plotConsensusCache: fallbackStory.plotConsensusCache,
+      aiInsights: fallbackStory.aiInsights,
+      genre: fallbackStory.genre,
+      aiReviews: fallbackStory.aiReviews,
+      storyNotes: fallbackStory.storyNotes,
+    };
+  }
+
+  const snapChapters = asArray(snapshot?.chapters)
+    .map((chapter, chapterIndex) => ({
+      id: asString(chapter?.id, `snapshot-${index + 1}-chapter-${chapterIndex + 1}`),
+      title: asString(chapter?.title, `Chapter ${chapterIndex + 1}`),
+      content: String(chapter?.content ?? ''),
+      order: Math.max(1, toInt(chapter?.order, chapterIndex + 1)),
+    }))
+    .sort((a, b) => a.order - b.order);
+  const safeSnapChapters = snapChapters.length > 0 ? snapChapters : fallbackStory.chapters;
+  const snapChapterIds = new Set(safeSnapChapters.map((c) => c.id));
+  const snapCurrentChapterId = asString(snapshot?.currentChapterId, safeSnapChapters[0]?.id || fallbackStory.currentChapterId);
+
+  const snapInsightsRaw = snapshot?.aiInsights && typeof snapshot.aiInsights === 'object' ? snapshot.aiInsights : {};
+  const snapInsights = {
+    synopsis: String(snapInsightsRaw?.synopsis ?? ''),
+    backCover: String(snapInsightsRaw?.backCover ?? ''),
+    detailedNotes: String(snapInsightsRaw?.detailedNotes ?? ''),
+  };
+
+  const snapReviews = asArray(snapshot?.aiReviews)
+    .slice(0, 3)
+    .map((entry, reviewIndex) => ({
+      id: asString(entry?.id, `snapshot-${index + 1}-review-${reviewIndex + 1}`),
+      createdAt: asString(entry?.createdAt, nowIso()),
+      genre: asString(entry?.genre, ''),
+      verdict: asString(entry?.verdict, ''),
+      criticalReview: String(entry?.criticalReview ?? ''),
+      priorityFixes: asArray(entry?.priorityFixes).map((fix) => asString(fix, '')).filter(Boolean).slice(0, 8),
+      riskScore: Math.max(0, Math.min(10, Number(entry?.riskScore || 0))),
+    }));
+
+  return {
+    title: asString(snapshot?.title, fallbackStory.title),
+    chapters: safeSnapChapters,
+    currentChapterId: snapChapterIds.has(snapCurrentChapterId) ? snapCurrentChapterId : (safeSnapChapters[0]?.id || fallbackStory.currentChapterId),
+    characters: asArray(snapshot?.characters),
+    locations: asArray(snapshot?.locations),
+    plotPoints: asArray(snapshot?.plotPoints),
+    plotConsensusCache: sanitizePlotConsensusCache(snapshot?.plotConsensusCache),
+    aiInsights: snapInsights,
+    genre: asString(snapshot?.genre, ''),
+    aiReviews: snapReviews,
+    storyNotes: String(snapshot?.storyNotes ?? ''),
+  };
+}
+
 function sanitizeStory(story, index = 0) {
   const baseId = asString(story?.id, `restored-story-${index + 1}`);
   const chapters = asArray(story?.chapters)
@@ -86,6 +149,13 @@ function sanitizeStory(story, index = 0) {
   const currentChapterId = asString(story?.currentChapterId, firstChapterId);
   const chapterIds = new Set(safeChapters.map((c) => c.id));
 
+  const aiInsightsRaw = story?.aiInsights && typeof story.aiInsights === 'object' ? story.aiInsights : {};
+  const aiInsights = {
+    synopsis: String(aiInsightsRaw?.synopsis ?? ''),
+    backCover: String(aiInsightsRaw?.backCover ?? ''),
+    detailedNotes: String(aiInsightsRaw?.detailedNotes ?? ''),
+  };
+
   const aiReviews = asArray(story?.aiReviews)
     .slice(0, 3)
     .map((entry, reviewIndex) => ({
@@ -98,8 +168,7 @@ function sanitizeStory(story, index = 0) {
       riskScore: Math.max(0, Math.min(10, Number(entry?.riskScore || 0))),
     }));
 
-  return {
-    id: baseId,
+  const baseStory = {
     title: asString(story?.title, `Recovered Story ${index + 1}`),
     chapters: safeChapters,
     currentChapterId: chapterIds.has(currentChapterId) ? currentChapterId : firstChapterId,
@@ -107,7 +176,34 @@ function sanitizeStory(story, index = 0) {
     locations: asArray(story?.locations),
     plotPoints: asArray(story?.plotPoints),
     plotConsensusCache: sanitizePlotConsensusCache(story?.plotConsensusCache),
+    aiInsights,
     genre: asString(story?.genre, ''),
+    aiReviews,
+    storyNotes: String(story?.storyNotes ?? ''),
+  };
+
+  const preservedVersions = asArray(story?.preservedVersions)
+    .slice(0, 10)
+    .map((entry, versionIndex) => ({
+      id: asString(entry?.id, `${baseId}-version-${versionIndex + 1}`),
+      name: asString(entry?.name, `Version ${versionIndex + 1}`),
+      createdAt: asString(entry?.createdAt, nowIso()),
+      snapshot: sanitizeStorySnapshot(entry?.snapshot, baseStory, versionIndex),
+    }));
+
+  return {
+    id: baseId,
+    title: baseStory.title,
+    chapters: baseStory.chapters,
+    currentChapterId: baseStory.currentChapterId,
+    characters: baseStory.characters,
+    locations: baseStory.locations,
+    plotPoints: baseStory.plotPoints,
+    plotConsensusCache: baseStory.plotConsensusCache,
+    aiInsights,
+    storyNotes: baseStory.storyNotes,
+    preservedVersions,
+    genre: baseStory.genre,
     aiReviews,
   };
 }

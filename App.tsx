@@ -114,6 +114,13 @@ function createFreshStory(num = 1) {
       byChapter: {},
       all: { runs: [[], [], []], consensus: [] },
     },
+    aiInsights: {
+      synopsis: '',
+      backCover: '',
+      detailedNotes: '',
+    },
+    storyNotes: '',
+    preservedVersions: [],
     genre: '',
     aiReviews: [],
   };
@@ -192,6 +199,15 @@ const App = () => {
     }
     const normalizedRows = rows.map((story) => ({
       ...story,
+      aiInsights: story?.aiInsights && typeof story.aiInsights === 'object'
+        ? {
+            synopsis: String(story.aiInsights.synopsis || ''),
+            backCover: String(story.aiInsights.backCover || ''),
+            detailedNotes: String(story.aiInsights.detailedNotes || ''),
+          }
+        : { synopsis: '', backCover: '', detailedNotes: '' },
+      storyNotes: String(story?.storyNotes || ''),
+      preservedVersions: Array.isArray(story?.preservedVersions) ? story.preservedVersions.slice(0, 10) : [],
       genre: typeof story.genre === 'string' ? story.genre : '',
       aiReviews: Array.isArray(story.aiReviews) ? story.aiReviews.slice(0, 3) : [],
     }));

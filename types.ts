@@ -64,6 +64,39 @@ export interface StoryPlotConsensusCache {
   all: PlotEstimateResponse;
 }
 
+export interface StorySnapshot {
+  title: string;
+  chapters: Chapter[];
+  currentChapterId: string;
+  characters: Character[];
+  locations: Location[];
+  plotPoints: PlotPoint[];
+  plotConsensusCache?: StoryPlotConsensusCache;
+  aiInsights?: {
+    synopsis?: string;
+    backCover?: string;
+    detailedNotes?: string;
+  };
+  genre?: string;
+  aiReviews?: Array<{
+    id: string;
+    createdAt: string;
+    genre: string;
+    verdict: string;
+    criticalReview: string;
+    priorityFixes: string[];
+    riskScore: number;
+  }>;
+  storyNotes?: string;
+}
+
+export interface StoryVersion {
+  id: string;
+  name: string;
+  createdAt: string;
+  snapshot: StorySnapshot;
+}
+
 export interface StoryState {
   id: string;
   title: string;
@@ -73,6 +106,13 @@ export interface StoryState {
   locations: Location[];
   plotPoints: PlotPoint[];
   plotConsensusCache?: StoryPlotConsensusCache;
+  aiInsights?: {
+    synopsis?: string;
+    backCover?: string;
+    detailedNotes?: string;
+  };
+  storyNotes?: string;
+  preservedVersions?: StoryVersion[];
   genre?: string;
   aiReviews?: Array<{
     id: string;
