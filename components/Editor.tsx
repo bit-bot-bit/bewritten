@@ -202,7 +202,7 @@ export const Editor = ({ storyState, setStoryState }) => {
       </button>
 
       <div className="flex-1 h-full flex flex-col max-w-4xl mx-auto w-full relative">
-        <div className="px-12 pt-8 pb-4 flex flex-col gap-2">
+        <div className="px-4 md:px-12 pt-6 md:pt-8 pb-4 flex flex-col gap-2">
           <div className="flex justify-between items-start">
             <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors" />
 
@@ -228,15 +228,15 @@ export const Editor = ({ storyState, setStoryState }) => {
             </div>
           </div>
 
-          <input type="text" value={currentChapter.title} onChange={(e) => updateChapterTitle(e.target.value)} placeholder="Chapter Title" className="w-full bg-transparent text-4xl font-serif font-bold text-main placeholder-muted outline-none border-b border-transparent focus:border-border transition-colors pb-2" />
+          <input type="text" value={currentChapter.title} onChange={(e) => updateChapterTitle(e.target.value)} placeholder="Chapter Title" className="w-full bg-transparent text-2xl md:text-4xl font-serif font-bold text-main placeholder-muted outline-none border-b border-transparent focus:border-border transition-colors pb-2" />
         </div>
 
         {viewMode === 'edit' ? (
-          <div className="flex-1 px-12 pb-12 overflow-hidden">
+          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden">
             <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={false} />
           </div>
         ) : (
-          <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto p-8 flex flex-col items-center">
+          <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto p-4 md:p-8 flex flex-col items-center">
             <div className="mb-6 flex gap-3 items-center bg-card p-2 rounded-xl border border-border">
               <span className="text-xs font-bold text-muted uppercase px-2">Book Size:</span>
               {BOOK_FORMATS.map((fmt) => (
@@ -290,7 +290,7 @@ export const Editor = ({ storyState, setStoryState }) => {
         )}
       </div>
 
-      <div className="w-80 bg-surface border-l border-border flex flex-col">
+      <div className="hidden lg:flex w-80 bg-surface border-l border-border flex-col">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h3 className="font-semibold text-muted">Continuity Check</h3>
           <button onClick={handleAnalysis} disabled={isAnalyzing} className="text-xs bg-accent hover:brightness-110 disabled:opacity-50 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition-all">

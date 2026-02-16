@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, ChevronUp } from 'lucide-react';
+import { MessageSquare, X, Send, ChevronUp, Minimize2, Maximize2 } from 'lucide-react';
 import { chatWithBible } from '../services/geminiService';
 import { StoryState } from '../types';
 
 interface AIAssistantProps {
     storyState: StoryState;
+    isMobile?: boolean;
 }
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
+type PanelMode = 'normal' | 'maximized' | 'minimized';
+
+export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<{role: 'user' | 'ai', text: string}[]>([]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
+    const [panelMode, setPanelMode] = useState<PanelMode>('normal');
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -38,11 +42,21 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
         }
     };
 
+    const openAssistant = () => {
+        setIsOpen(true);
+        setPanelMode(isMobile ? 'maximized' : 'normal');
+    };
+
+    const isMaximized = panelMode === 'maximized';
+    const isMinimized = panelMode === 'minimized';
+
     if (!isOpen) {
         return (
             <button 
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-6 right-6 bg-accent hover:brightness-110 text-white p-4 rounded-full shadow-2xl transition-all z-50 flex items-center gap-2"
+                onClick={openAssistant}
+                className={`fixed bg-accent hover:brightness-110 text-white p-4 rounded-full shadow-2xl transition-all z-50 flex items-center gap-2 ${
+                    isMobile ? 'bottom-24 right-4' : 'bottom-6 right-6'
+                }`}
             >
                 <MessageSquare size={24} />
                 <span className="font-medium pr-1">Co-Author</span>
@@ -50,9 +64,45 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
         );
     }
 
+    if (isMinimized) {
+        return (
+            <div
+                className={`fixed bg-surface border border-border rounded-xl shadow-2xl z-50 flex items-center justify-between px-3 py-2 ${
+                    isMobile ? 'left-3 right-3 bottom-24' : 'bottom-6 right-6 w-80'
+                }`}
+                style={{ backgroundColor: 'var(--color-surface)' }}
+            >
+                <div className="font-semibold text-main flex items-center gap-2 text-sm">
+                    <MessageSquare size={16} className="text-accent" />
+                    Mythos Co-Author
+                </div>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setPanelMode(isMobile ? 'maximized' : 'normal')}
+                        className="text-muted hover:text-main p-1 rounded"
+                        title="Restore"
+                    >
+                        <ChevronUp size={16} />
+                    </button>
+                    <button onClick={() => setIsOpen(false)} className="text-muted hover:text-main p-1 rounded" title="Close">
+                        <X size={16} />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div 
-            className="fixed bottom-6 right-6 w-96 h-[500px] bg-surface border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden"
+            className={`fixed bg-surface border border-border rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden ${
+                isMaximized
+                    ? isMobile
+                        ? 'inset-2'
+                        : 'inset-6'
+                    : isMobile
+                        ? 'left-2 right-2 top-16 bottom-24'
+                        : 'bottom-6 right-6 w-96 h-[500px]'
+            }`}
             style={{ backgroundColor: 'var(--color-surface)' }}
         >
             {/* Header */}
@@ -61,9 +111,25 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
                     <MessageSquare size={18} className="text-accent" />
                     Mythos Co-Author
                 </h3>
-                <button onClick={() => setIsOpen(false)} className="text-muted hover:text-main">
-                    <ChevronUp size={20} className="rotate-180" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setPanelMode('minimized')}
+                        className="text-muted hover:text-main p-1 rounded"
+                        title="Minimize"
+                    >
+                        <Minimize2 size={16} />
+                    </button>
+                    <button
+                        onClick={() => setPanelMode(isMaximized ? 'normal' : 'maximized')}
+                        className="text-muted hover:text-main p-1 rounded"
+                        title={isMaximized ? 'Restore' : 'Maximize'}
+                    >
+                        <Maximize2 size={16} />
+                    </button>
+                    <button onClick={() => setIsOpen(false)} className="text-muted hover:text-main p-1 rounded" title="Close">
+                        <X size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* Messages */}
@@ -80,7 +146,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState }) => {
                             ? 'bg-accent text-white rounded-br-none' 
                             : 'bg-card text-main rounded-bl-none border border-border'
                         }`}>
-                            {msg.text}
+                            <span className="whitespace-pre-wrap break-words">{msg.text}</span>
                         </div>
                     </div>
                 ))}

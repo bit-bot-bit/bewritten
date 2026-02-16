@@ -30,6 +30,14 @@ export async function extractPlotPointsFromText(text) {
   return data.plotPoints || [];
 }
 
+export async function estimatePlotConsensus(text, existingPlotPoints = [], chapterTitle = 'Current Chapter') {
+  const data = await apiPost('/ai/plot-consensus', { text, existingPlotPoints, chapterTitle });
+  return {
+    runs: Array.isArray(data?.runs) ? data.runs : [[], [], []],
+    consensus: Array.isArray(data?.consensus) ? data.consensus : [],
+  };
+}
+
 export async function chatWithBible(query, state) {
   const data = await apiPost('/ai/chat', { query, state, storyId: state?.id || null });
   return data.reply || '';
