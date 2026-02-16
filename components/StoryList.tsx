@@ -16,6 +16,8 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const [reviewGenre, setReviewGenre] = useState('');
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [notesDraft, setNotesDraft] = useState('');
+  const [versionName, setVersionName] = useState('');
 
   const handleDeleteClick = (e, id) => {
     e.stopPropagation();
@@ -30,16 +32,24 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   };
 
   const getStoryTitle = (id) => stories.find((s) => s.id === id)?.title || 'Story';
-  const currentInsights = insightsStory ? insightsByStory[insightsStory.id] : null;
+  const currentInsights = insightsStory
+    ? (insightsByStory[insightsStory.id] || insightsStory.aiInsights || null)
+    : null;
 
   const ensureInsights = async (story, focus = 'all') => {
     if (!story?.id) return;
-    if (insightsByStory[story.id]) return;
+    if (insightsByStory[story.id] || story?.aiInsights) return;
     setIsGeneratingInsights(true);
     setInsightsError('');
     try {
       const insights = await generateStoryInsights(story, focus);
       setInsightsByStory((prev) => ({ ...prev, [story.id]: insights }));
+      const updatedStory = {
+        ...story,
+        aiInsights: insights,
+      };
+      setInsightsStory((prev) => (prev?.id === updatedStory.id ? updatedStory : prev));
+      await updateAndPersistStory(updatedStory);
     } catch (e) {
       setInsightsError(e instanceof Error ? e.message : 'Failed to generate insights.');
     } finally {
@@ -51,11 +61,11 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
     setInsightsStory(story);
     setInsightsTab(tab);
     setReviewGenre(String(story?.genre || ''));
+    setNotesDraft(String(story?.storyNotes || ''));
+    setVersionName('');
     setReviewError('');
+    setInsightsError('');
     setAiMenuStoryId(null);
-    if (tab !== 'review') {
-      await ensureInsights(story, tab);
-    }
   };
 
   const updateAndPersistStory = async (updatedStory) => {
@@ -109,6 +119,90 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
     }
   };
 
+  const saveNotes = async () => {
+    if (!insightsStory) return;
+    const updatedStory = {
+      ...insightsStory,
+      storyNotes: String(notesDraft || ''),
+    };
+    setInsightsStory(updatedStory);
+    await updateAndPersistStory(updatedStory);
+  };
+
+  const buildVersionSnapshot = (story) => {
+    const snapshot = {
+      title: story?.title || '',
+      chapters: story?.chapters || [],
+      currentChapterId: story?.currentChapterId || '',
+      characters: story?.characters || [],
+      locations: story?.locations || [],
+      plotPoints: story?.plotPoints || [],
+      plotConsensusCache: story?.plotConsensusCache || { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
+      aiInsights: story?.aiInsights || { synopsis: '', backCover: '', detailedNotes: '' },
+      genre: story?.genre || '',
+      aiReviews: Array.isArray(story?.aiReviews) ? story.aiReviews.slice(0, 3) : [],
+      storyNotes: String(story?.storyNotes || ''),
+    };
+    return JSON.parse(JSON.stringify(snapshot));
+  };
+
+  const preserveVersion = async () => {
+    if (!insightsStory) return;
+    const name = String(versionName || '').trim() || `Version ${new Date().toLocaleString()}`;
+    const entry = {
+      id: generateId(),
+      name,
+      createdAt: new Date().toISOString(),
+      snapshot: buildVersionSnapshot(insightsStory),
+    };
+    const existing = Array.isArray(insightsStory.preservedVersions) ? insightsStory.preservedVersions : [];
+    const updatedStory = {
+      ...insightsStory,
+      preservedVersions: [entry, ...existing].slice(0, 10),
+    };
+    setVersionName('');
+    setInsightsStory(updatedStory);
+    await updateAndPersistStory(updatedStory);
+  };
+
+  const deleteVersion = async (versionId) => {
+    if (!insightsStory) return;
+    const existing = Array.isArray(insightsStory.preservedVersions) ? insightsStory.preservedVersions : [];
+    const updatedStory = {
+      ...insightsStory,
+      preservedVersions: existing.filter((v) => v.id !== versionId),
+    };
+    setInsightsStory(updatedStory);
+    await updateAndPersistStory(updatedStory);
+  };
+
+  const loadVersion = async (versionId) => {
+    if (!insightsStory) return;
+    const existing = Array.isArray(insightsStory.preservedVersions) ? insightsStory.preservedVersions : [];
+    const version = existing.find((v) => v.id === versionId);
+    if (!version?.snapshot) return;
+    const snap = version.snapshot;
+    const updatedStory = {
+      ...insightsStory,
+      title: snap.title || insightsStory.title,
+      chapters: Array.isArray(snap.chapters) ? snap.chapters : insightsStory.chapters,
+      currentChapterId: snap.currentChapterId || insightsStory.currentChapterId,
+      characters: Array.isArray(snap.characters) ? snap.characters : insightsStory.characters,
+      locations: Array.isArray(snap.locations) ? snap.locations : insightsStory.locations,
+      plotPoints: Array.isArray(snap.plotPoints) ? snap.plotPoints : insightsStory.plotPoints,
+      plotConsensusCache: snap.plotConsensusCache || insightsStory.plotConsensusCache,
+      aiInsights: snap.aiInsights || insightsStory.aiInsights,
+      genre: snap.genre ?? insightsStory.genre,
+      aiReviews: Array.isArray(snap.aiReviews) ? snap.aiReviews.slice(0, 3) : insightsStory.aiReviews,
+      storyNotes: String(snap.storyNotes ?? insightsStory.storyNotes ?? ''),
+      preservedVersions: existing,
+    };
+    setInsightsStory(updatedStory);
+    setReviewGenre(String(updatedStory.genre || ''));
+    setNotesDraft(String(updatedStory.storyNotes || ''));
+    await updateAndPersistStory(updatedStory);
+  };
+
   return (
     <div className="p-4 md:p-12 max-w-6xl mx-auto h-full overflow-y-auto overflow-x-hidden">
       <ConfirmationModal
@@ -122,7 +216,10 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
       {insightsStory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setInsightsStory(null)} aria-label="Close AI insights modal" />
-          <div className="relative w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl max-h-[85vh] overflow-hidden">
+          <div
+            className="relative w-full max-w-3xl border border-border rounded-2xl shadow-2xl max-h-[85vh] overflow-hidden"
+            style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-main)' }}
+          >
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div className="min-w-0">
                 <div className="text-main font-semibold flex items-center gap-2"><Sparkles size={16} />Story AI Insights</div>
@@ -139,6 +236,8 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                 { id: 'backCover', label: 'Back Cover' },
                 { id: 'detailedNotes', label: 'Detailed Notes' },
                 { id: 'review', label: 'AI Review' },
+                { id: 'notes', label: 'Notes' },
+                { id: 'versions', label: 'Versions' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -148,7 +247,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                   {tab.label}
                 </button>
               ))}
-              {insightsTab !== 'review' && !currentInsights && !isGeneratingInsights && (
+              {['synopsis', 'backCover', 'detailedNotes'].includes(insightsTab) && !currentInsights && !isGeneratingInsights && (
                 <button
                   onClick={() => ensureInsights(insightsStory, insightsTab)}
                   className="ml-auto px-3 py-1.5 rounded-lg border border-border text-sm text-main hover:bg-surface"
@@ -215,7 +314,63 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                 </div>
               )}
 
-              {insightsTab !== 'review' && (
+              {insightsTab === 'notes' && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted">Private author notes for this story.</div>
+                  <textarea
+                    value={notesDraft}
+                    onChange={(e) => setNotesDraft(e.target.value)}
+                    className="themed-control w-full rounded-lg border px-3 py-2 text-main text-sm min-h-[220px] resize-y"
+                    placeholder="Write your notes here..."
+                  />
+                  <div>
+                    <button onClick={() => saveNotes().catch(() => {})} className="px-3 py-2 rounded-lg border border-border text-sm text-main hover:bg-surface">
+                      Save Notes
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {insightsTab === 'versions' && (
+                <div className="space-y-4">
+                  <div className="text-sm text-muted">Preserve up to 10 story versions, then load or delete any saved version.</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={versionName}
+                      onChange={(e) => setVersionName(e.target.value)}
+                      placeholder="Version name (optional)"
+                      className="themed-control flex-1 rounded-lg border px-3 py-2 text-main text-sm min-w-[240px]"
+                    />
+                    <button onClick={() => preserveVersion().catch(() => {})} className="px-3 py-2 rounded-lg border border-accent/40 bg-accent/15 text-accent text-sm hover:bg-accent/25">
+                      Preserve Version
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(Array.isArray(insightsStory?.preservedVersions) ? insightsStory.preservedVersions : []).length === 0 && (
+                      <div className="text-sm text-muted">No preserved versions yet.</div>
+                    )}
+                    {(Array.isArray(insightsStory?.preservedVersions) ? insightsStory.preservedVersions : []).map((entry) => (
+                      <div key={entry.id} className="border border-border rounded-xl p-3 bg-surface/40 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-main truncate">{entry.name || 'Unnamed Version'}</div>
+                          <div className="text-xs text-muted">{new Date(entry.createdAt || Date.now()).toLocaleString()}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button onClick={() => loadVersion(entry.id).catch(() => {})} className="px-2.5 py-1.5 rounded border border-border text-xs text-main hover:bg-surface">
+                            Load
+                          </button>
+                          <button onClick={() => deleteVersion(entry.id).catch(() => {})} className="px-2.5 py-1.5 rounded border border-red-700/40 text-xs text-red-300 hover:bg-red-900/20">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {insightsTab !== 'review' && insightsTab !== 'notes' && insightsTab !== 'versions' && (
                 <>
               {isGeneratingInsights && (
                 <div className="text-muted text-sm flex items-center gap-2">
@@ -287,32 +442,15 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
 
                 {aiMenuStoryId === story.id && (
                   <div
-                    className="absolute top-10 right-0 z-10 w-44 rounded-xl border border-border bg-card shadow-xl p-2 space-y-1"
+                    className="absolute top-10 right-0 z-20 w-44 rounded-xl border border-border shadow-xl p-2 space-y-1 backdrop-blur-sm"
+                    style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-main)' }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
                       onClick={() => openInsights(story, 'synopsis')}
                       className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
                     >
-                      Synopsis
-                    </button>
-                    <button
-                      onClick={() => openInsights(story, 'backCover')}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
-                    >
-                      Back Cover
-                    </button>
-                    <button
-                      onClick={() => openInsights(story, 'detailedNotes')}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
-                    >
-                      Detailed Notes
-                    </button>
-                    <button
-                      onClick={() => openInsights(story, 'review')}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
-                    >
-                      AI Review
+                      Details
                     </button>
                   </div>
                 )}

@@ -15,6 +15,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
     const [messages, setMessages] = useState<{role: 'user' | 'ai', text: string}[]>([]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
+    const [thinkingStep, setThinkingStep] = useState(0);
     const [panelMode, setPanelMode] = useState<PanelMode>('normal');
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -23,6 +24,17 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    useEffect(() => {
+        if (!isThinking) {
+            setThinkingStep(0);
+            return;
+        }
+        const timer = window.setInterval(() => {
+            setThinkingStep((prev) => (prev + 1) % 3);
+        }, 420);
+        return () => window.clearInterval(timer);
+    }, [isThinking]);
 
     const handleSend = async () => {
         if (!input.trim()) return;
@@ -153,10 +165,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
                 {isThinking && (
                     <div className="flex justify-start">
                         <div className="bg-card p-3 rounded-2xl rounded-bl-none border border-border">
-                            <div className="flex gap-1">
-                                <span className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                <span className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                <span className="w-2 h-2 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            <div className="text-sm text-muted font-medium min-w-[90px]">
+                                {`Thinking${'.'.repeat(thinkingStep + 1)}`}
                             </div>
                         </div>
                     </div>
