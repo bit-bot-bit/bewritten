@@ -69,6 +69,22 @@ spec:
               value: {{ .Values.env.BEWRITTEN_ADMIN_PASSWORD | quote }}
             - name: BEWRITTEN_SECRET_KEY
               value: {{ .Values.env.BEWRITTEN_SECRET_KEY | quote }}
+            - name: BEWRITTEN_AI_RATE_WINDOW_SECONDS
+              value: {{ .Values.env.BEWRITTEN_AI_RATE_WINDOW_SECONDS | quote }}
+            - name: BEWRITTEN_AI_RATE_MAX
+              value: {{ .Values.env.BEWRITTEN_AI_RATE_MAX | quote }}
+            {{- if .Values.redis.url }}
+            - name: BEWRITTEN_REDIS_URL
+              value: {{ .Values.redis.url | quote }}
+            {{- else if .Values.redis.enabled }}
+            {{- if .Values.redis.password }}
+            - name: BEWRITTEN_REDIS_URL
+              value: "redis://:{{ .Values.redis.password }}@{{ include "bewritten.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
+            {{- else }}
+            - name: BEWRITTEN_REDIS_URL
+              value: "redis://{{ include "bewritten.fullname" . }}-redis:{{ .Values.redis.service.port }}/0"
+            {{- end }}
+            {{- end }}
             {{- if .Values.postgres.enabled }}
             - name: DB_HOST
               value: "{{ include "bewritten.fullname" . }}-postgres"

@@ -4,6 +4,7 @@ import { apiGet, apiPut } from '../services/apiClient';
 const TARGET_LABELS = {
   gemini: 'Gemini',
   openai_compatible: 'OpenAI Compatible',
+  shared: 'Shared Key (Managed)',
   disabled: 'Disabled',
 };
 
@@ -15,6 +16,10 @@ export const UserSettings = () => {
     aiBaseUrl: '',
     hasApiKey: false,
     aiApiKeyMasked: '',
+    availableTargets: ['gemini', 'openai_compatible', 'disabled'],
+    tier: 'byok',
+    credits: null,
+    monetizationEnabled: false,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,6 +79,12 @@ export const UserSettings = () => {
       <div>
         <h3 className="text-xl font-bold text-main">User Settings</h3>
         <p className="text-sm text-muted mt-1">Configure AI target and credentials for your own account.</p>
+        <p className="text-xs text-muted mt-2 uppercase tracking-wide">Tier: {settings.tier}</p>
+        {settings.credits?.limited && (
+          <p className="text-xs text-muted mt-1">
+            Tokens: {settings.credits.balance}/{settings.credits.cap} (refill {settings.credits.refillPerDay}/day)
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -83,13 +94,13 @@ export const UserSettings = () => {
           onChange={(e) => setSettings((prev) => ({ ...prev, aiTarget: e.target.value }))}
           className="themed-control w-full rounded-lg border px-3 py-2 text-main focus:border-accent outline-none"
         >
-          {Object.keys(TARGET_LABELS).map((target) => (
-            <option key={target} value={target}>{TARGET_LABELS[target]}</option>
+          {(settings.availableTargets || []).map((target) => (
+            <option key={target} value={target}>{TARGET_LABELS[target] || target}</option>
           ))}
         </select>
       </div>
 
-      {settings.aiTarget !== 'disabled' && (
+      {settings.aiTarget !== 'disabled' && settings.aiTarget !== 'shared' && (
         <>
           <div className="space-y-3">
             <label className="block text-sm text-muted">API Key</label>
@@ -141,6 +152,12 @@ export const UserSettings = () => {
             </div>
           </div>
         </>
+      )}
+
+      {settings.aiTarget === 'shared' && (
+        <div className="text-xs text-muted border border-border rounded-lg p-3 bg-surface/40">
+          Shared key mode is managed by admin. Your personal API key is not used for this target.
+        </div>
       )}
 
       <div className="flex items-center gap-3">

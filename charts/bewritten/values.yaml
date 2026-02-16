@@ -53,6 +53,21 @@ env:
   BEWRITTEN_ADMIN_PASSWORD: "ChangeMeNow123!"
   BEWRITTEN_SECRET_KEY: "change-this-to-a-secure-random-string"
   # DB connection details will be auto-generated if postgresql is enabled
+  BEWRITTEN_AI_RATE_WINDOW_SECONDS: "20"
+  BEWRITTEN_AI_RATE_MAX: "8"
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  # If set, this URL is used directly by the app (external redis)
+  url: ""
+  # Optional auth for bundled redis. If set, app URL will include it.
+  password: ""
 
 postgres:
   enabled: true

@@ -59,6 +59,11 @@ The following table lists the configurable parameters of the Bewritten chart and
 | `topologySpreadConstraints` | Topology spread constraints overrides | `[]` |
 | `nodeSelector` | Node selector for app pods | `{}` |
 | `tolerations` | Tolerations for app pods | `[]` |
+| `env.BEWRITTEN_AI_RATE_WINDOW_SECONDS` | AI transient throttling window (seconds) | `"20"` |
+| `env.BEWRITTEN_AI_RATE_MAX` | Max AI calls per user+task within window | `"8"` |
+| `redis.enabled` | Deploy bundled Redis for transient cross-pod state | `true` |
+| `redis.url` | External Redis URL override (`redis://...`) | `""` |
+| `redis.password` | Password for bundled Redis | `""` |
 | `image.repository` | Image repository | `ghcr.io/bit-bot-bit/bewritten` |
 | `image.tag` | Image tag (defaults to chart AppVersion if omitted) | `"0.1.20"` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
@@ -77,6 +82,8 @@ The following table lists the configurable parameters of the Bewritten chart and
 | `postgres.persistence.size` | DB Volume size | `1Gi` |
 
 Note: The bundled chart PostgreSQL is a single StatefulSet replica. For full HA in production, use an external HA PostgreSQL service and disable `postgres.enabled`.
+
+Note: Bundled Redis is single-instance and intended for transient coordination (locks/rate limits/counters). For stricter production resiliency, set `redis.url` to a managed Redis deployment.
 
 To override values during installation:
 

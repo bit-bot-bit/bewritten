@@ -1,17 +1,25 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { getUserAiSettings } from './userSettings.js';
+import { resolveRuntimeForUser } from './monetization.js';
 
 const MODEL_FAST = process.env.BEWRITTEN_AI_MODEL || 'gemini-2.5-flash';
 
 async function getRuntimeSettings(actorEmail) {
-  const user = actorEmail ? await getUserAiSettings(actorEmail, { includeSecret: true }) : null;
-  const aiTarget = user?.aiTarget || 'gemini';
-  return {
-    aiTarget,
-    aiApiKey: user?.aiApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY || '',
-    aiModel: user?.aiModel || MODEL_FAST,
-    aiBaseUrl: user?.aiBaseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  const fallbackRuntime = {
+    aiTarget: 'gemini',
+    aiApiKey: '',
+    aiModel: MODEL_FAST,
+    aiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
   };
+  if (!actorEmail) return fallbackRuntime;
+  const user = await getUserAiSettings(actorEmail, { includeSecret: true });
+  const byokRuntime = {
+    aiTarget: user?.aiTarget || fallbackRuntime.aiTarget,
+    aiApiKey: user?.aiApiKey || '',
+    aiModel: user?.aiModel || fallbackRuntime.aiModel,
+    aiBaseUrl: user?.aiBaseUrl || fallbackRuntime.aiBaseUrl,
+  };
+  return resolveRuntimeForUser(actorEmail, user, byokRuntime);
 }
 
 function getClient(apiKey) {

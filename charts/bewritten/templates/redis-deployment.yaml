@@ -1,0 +1,39 @@
+{{- if and .Values.redis.enabled (not .Values.redis.url) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bewritten.fullname" . }}-redis
+  labels:
+    {{- include "bewritten.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "bewritten.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "bewritten.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.service.port }}
+              protocol: TCP
+          {{- if .Values.redis.password }}
+          command:
+            - redis-server
+            - "--appendonly"
+            - "no"
+            - "--save"
+            - ""
+            - "--requirepass"
+            - "{{ .Values.redis.password }}"
+          {{- end }}
+{{- end }}
