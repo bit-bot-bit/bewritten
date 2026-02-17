@@ -12,17 +12,33 @@ function hashPayload(payload) {
 export async function listStoriesByUser(email) {
   const db = getDb();
   const rows = await db('stories')
-    .select('payload_json')
+    .select('id', 'title', 'updated_at', 'created_at')
     .where('user_email', email)
     .orderBy('updated_at', 'desc');
 
-  return rows.map((r) => {
-    try {
-      return JSON.parse(r.payload_json);
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
+  // Return lightweight metadata only.
+  // The frontend will need to fetch the full story content individually.
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    updatedAt: r.updated_at,
+    createdAt: r.created_at,
+  }));
+}
+
+export async function getStoryById(email, storyId) {
+  const db = getDb();
+  const row = await db('stories')
+    .select('payload_json')
+    .where({ user_email: email, id: storyId })
+    .first();
+
+  if (!row) return null;
+  try {
+    return JSON.parse(row.payload_json);
+  } catch {
+    return null;
+  }
 }
 
 export async function createStory(email, story) {
@@ -106,18 +122,26 @@ export async function saveStory(email, story) {
 export async function syncStories(email, stories) {
   let saved = 0;
   let unchanged = 0;
-  const existingList = await listStoriesByUser(email);
-  const existingById = new Map(existingList.map((s) => [s.id, s]));
+
+  // For sync, we still need to check existence.
+  // Optimization: Fetch only IDs and hashes to compare.
+  const db = getDb();
+  const existingRows = await db('stories')
+    .select('id', 'payload_hash')
+    .where('user_email', email);
+
+  const existingMap = new Map(existingRows.map((r) => [r.id, r.payload_hash]));
 
   for (const story of stories) {
     if (!story?.id) continue;
-    if (!existingById.has(story.id)) {
+
+    if (!existingMap.has(story.id)) {
       await createStory(email, story);
       saved += 1;
       continue;
     }
 
-    const currentHash = hashPayload(existingById.get(story.id));
+    const currentHash = existingMap.get(story.id);
     const nextHash = hashPayload(story);
     if (currentHash === nextHash) {
       unchanged += 1;

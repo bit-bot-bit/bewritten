@@ -1,6 +1,12 @@
 const API_BASE = '/api';
 
-async function request(path, init = {}) {
+interface RequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+async function request(path: string, init: RequestInit = {}) {
   const token = localStorage.getItem('mythos_token');
   const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
   const url = `${API_BASE}${path}`;
@@ -32,18 +38,18 @@ async function request(path, init = {}) {
   return res.json();
 }
 
-export function apiGet(path) {
+export function apiGet(path: string) {
   return request(path, { method: 'GET' });
 }
 
-export function apiPost(path, body) {
+export function apiPost(path: string, body: any) {
   return request(path, { method: 'POST', body: JSON.stringify(body) });
 }
 
-export function apiPut(path, body) {
+export function apiPut(path: string, body: any) {
   return request(path, { method: 'PUT', body: JSON.stringify(body) });
 }
 
-export function apiDelete(path) {
+export function apiDelete(path: string) {
   return request(path, { method: 'DELETE' });
 }
