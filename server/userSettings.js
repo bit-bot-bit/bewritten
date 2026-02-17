@@ -90,6 +90,7 @@ export async function getUserAiSettings(email, options = {}) {
       tier,
       credits,
       monetizationEnabled: Boolean(credits?.monetizationEnabled),
+      taskCosts: credits?.taskCosts || {},
     };
   }
 
@@ -109,6 +110,7 @@ export async function getUserAiSettings(email, options = {}) {
     tier,
     credits,
     monetizationEnabled: Boolean(credits?.monetizationEnabled),
+    taskCosts: credits?.taskCosts || {},
     themeId,
   };
 }

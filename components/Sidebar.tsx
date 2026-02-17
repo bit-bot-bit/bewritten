@@ -12,7 +12,23 @@ interface SidebarProps {
   storyUnlocked?: boolean;
 }
 
+import { fetchCurrentUser } from '../services/storyService';
+
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThemeChange, onLogout, isMobile = false, storyUnlocked = false }) => {
+  const [balanceToast, setBalanceToast] = React.useState<string | null>(null);
+
+  const showBalance = async () => {
+    try {
+      const user = await fetchCurrentUser();
+      const balance = user.tokenBalance !== undefined && user.tokenBalance !== null ? user.tokenBalance : '∞';
+      const tier = user.tier ? user.tier.toUpperCase() : 'USER';
+      setBalanceToast(`${tier} | ${balance} Tokens`);
+      setTimeout(() => setBalanceToast(null), 3000);
+    } catch {
+      // ignore
+    }
+  };
+
   const navItems = [
     { id: AppTab.WRITE, label: 'Write', icon: Feather },
     { id: AppTab.CHARACTERS, label: 'Characters', icon: Users },
@@ -26,7 +42,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
   if (isMobile) {
     return (
       <>
-        <div className="fixed top-2 left-3 z-30 text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg rounded-xl p-2">
+        {balanceToast && (
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl animate-in fade-in slide-in-from-top-2">
+            {balanceToast}
+          </div>
+        )}
+
+        <div onClick={showBalance} className="fixed top-2 left-3 z-30 text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg rounded-xl p-2 cursor-pointer active:scale-95 transition-transform">
           <BookOpen size={22} />
         </div>
 
@@ -73,8 +95,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
   }
 
   return (
-    <div className="w-20 bg-surface border-r border-border flex flex-col items-center py-6 gap-6 h-screen sticky top-0 z-20">
-      <div className="text-accent mb-2">
+    <div className="w-20 bg-surface border-r border-border flex flex-col items-center py-6 gap-6 h-screen sticky top-0 z-20 relative">
+      {balanceToast && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-black/90 text-white px-3 py-1.5 rounded-md text-[10px] font-bold shadow-xl w-max pointer-events-none whitespace-nowrap">
+          {balanceToast}
+        </div>
+      )}
+
+      <div onClick={showBalance} className="text-accent mb-2 cursor-pointer hover:scale-105 transition-transform active:scale-95" title="Show Balance">
         <BookOpen size={32} />
       </div>
 

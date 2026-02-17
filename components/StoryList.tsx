@@ -452,6 +452,18 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                     >
                       Details
                     </button>
+                    <button
+                      onClick={() => openInsights(story, 'review')}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
+                    >
+                      AI Review
+                    </button>
+                    <button
+                      onClick={() => openInsights(story, 'versions')}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
+                    >
+                      Versions
+                    </button>
                   </div>
                 )}
               </div>

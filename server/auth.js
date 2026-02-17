@@ -63,20 +63,28 @@ export async function issueSessionForEmail(email) {
 async function getUserByEmail(email) {
   const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
-  return db('users')
+  const user = await db('users')
     .select(
-      'email',
-      'role',
-      'tier',
-      'locked',
-      'must_change_password',
-      'password_hash',
-      'failed_login_count',
-      'login_backoff_until',
-      'last_failed_login_at'
+      'users.email',
+      'users.role',
+      'users.tier',
+      'users.locked',
+      'users.must_change_password',
+      'users.password_hash',
+      'users.failed_login_count',
+      'users.login_backoff_until',
+      'users.last_failed_login_at'
     )
-    .where('email', normalizedEmail)
+    .where('users.email', normalizedEmail)
     .first();
+
+  if (!user) return null;
+
+  // Augment with current balance
+  const creditRow = await db('user_credits').select('balance').where('user_email', normalizedEmail).first();
+  user.tokenBalance = creditRow ? Number(creditRow.balance) : null;
+
+  return user;
 }
 
 function sanitizeUser(row) {
@@ -86,6 +94,7 @@ function sanitizeUser(row) {
     tier: row.tier || 'byok',
     locked: Boolean(row.locked),
     mustChangePassword: Boolean(row.must_change_password),
+    tokenBalance: row.tokenBalance,
   };
 }
 
