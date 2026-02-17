@@ -17,6 +17,16 @@ entries:
     - https://github.com/bit-bot-bit/bewritten/releases/download/bewritten-0.2.0/bewritten-0.2.0.tgz
     version: 0.2.0
   - apiVersion: v2
+    appVersion: 0.1.26
+    created: "2026-02-17T00:44:03.278707329Z"
+    description: A Helm chart for Mythos AI Story Architect
+    digest: b4841bc2982253b3831d72dc5d879d6cc41508434fd070175ec66681d96dd5d6
+    name: bewritten
+    type: application
+    urls:
+    - https://github.com/bit-bot-bit/bewritten/releases/download/bewritten-0.1.26/bewritten-0.1.26.tgz
+    version: 0.1.26
+  - apiVersion: v2
     appVersion: 0.1.25
     created: "2026-02-16T08:43:14.868193952Z"
     description: A Helm chart for Mythos AI Story Architect
@@ -211,4 +221,4 @@ entries:
     urls:
     - https://github.com/bit-bot-bit/bewritten/releases/download/bewritten-0.1.4/bewritten-0.1.4.tgz
     version: 0.1.4
-generated: "2026-02-16T08:43:14.868380767Z"
+generated: "2026-02-17T00:44:03.27885783Z"
