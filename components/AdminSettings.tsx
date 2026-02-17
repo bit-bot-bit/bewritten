@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPut } from '../services/apiClient';
-import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unlock, Trash2, UserCog, KeyRound } from 'lucide-react';
+import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unlock, Trash2, UserCog, KeyRound, Coins } from 'lucide-react';
 
 export const AdminSettings = ({ compact = false }) => {
   const [data, setData] = useState(null);
@@ -63,6 +63,19 @@ export const AdminSettings = ({ compact = false }) => {
   const setUserTier = (email, tier) => {
     withRefresh(async () => {
       await apiPut(`/admin/users/${encodeURIComponent(email)}/tier`, { tier });
+    }).catch(() => {});
+  };
+
+  const setUserCredits = (email, currentBalance) => {
+    const raw = window.prompt(`Set new token balance for ${email} (current: ${currentBalance ?? '0'}):`);
+    if (raw === null) return;
+    const balance = parseInt(raw, 10);
+    if (!Number.isFinite(balance) || balance < 0) {
+      alert('Invalid balance');
+      return;
+    }
+    withRefresh(async () => {
+      await apiPut(`/admin/users/${encodeURIComponent(email)}/credits`, { balance });
     }).catch(() => {});
   };
 
@@ -335,7 +348,9 @@ export const AdminSettings = ({ compact = false }) => {
               <div className="col-span-2 text-muted">{u.locked ? 'Locked' : 'Active'}{u.mustChangePassword ? ' · Reset Required' : ''}</div>
               <div className="col-span-2 text-muted text-xs">
                 <div>{u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
-                <div>Tokens: {u.tokenBalance ?? '—'}</div>
+                <div className="flex items-center gap-1 cursor-pointer hover:text-accent" onClick={() => setUserCredits(u.email, u.tokenBalance)} title="Click to edit token balance">
+                  <Coins size={12} /> {u.tokenBalance ?? '—'}
+                </div>
               </div>
               <div className="col-span-2 flex justify-end gap-1">
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={14} /></button>
@@ -369,7 +384,10 @@ export const AdminSettings = ({ compact = false }) => {
                 </select>
               </div>
               <div className="text-xs text-muted">Last Seen: {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleString() : 'Never'}</div>
-              <div className="text-xs text-muted">Tokens: {u.tokenBalance ?? '—'}</div>
+              <div className="text-xs text-muted flex items-center gap-2">
+                Tokens: {u.tokenBalance ?? '—'}
+                <button onClick={() => setUserCredits(u.email, u.tokenBalance)} className="p-1 rounded hover:bg-surface text-accent"><Coins size={12} /></button>
+              </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={13} />Role</button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={13} /> : <Lock size={13} />}Lock</button>
