@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './apiClient';
+import { StoryState, StorySnapshot } from '../types';
 
 export function clearSession() {
   localStorage.removeItem('mythos_token');
@@ -76,7 +77,7 @@ export async function fetchUserSettings() {
   return data.settings;
 }
 
-export async function saveUserSettings(settings, options = {}) {
+export async function saveUserSettings(settings, options: { keepExistingKey?: boolean } = {}) {
   const keepExistingKey = options.keepExistingKey ?? true;
   const data = await apiPut('/user/settings', { settings, keepExistingKey });
   return data.settings;
@@ -85,6 +86,11 @@ export async function saveUserSettings(settings, options = {}) {
 export async function listStories() {
   const data = await apiGet('/stories');
   return data.stories;
+}
+
+export async function fetchStoryById(storyId) {
+  const data = await apiGet(`/stories/${encodeURIComponent(storyId)}`);
+  return data.story;
 }
 
 export async function createStoryForUser(story) {

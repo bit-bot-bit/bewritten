@@ -1,11 +1,43 @@
-Copyright (c) 2026 bit-bot-bit
+PolyForm Noncommercial License 1.0.0
 
-All Rights Reserved.
+Copyright (c) 2025 bit-bot-bit.
 
-NOTICE:  All information contained herein is, and remains
-the property of bit-bot-bit. The intellectual and technical
-concepts contained herein are proprietary to bit-bot-bit
-and are protected by trade secret or copyright law.
-Dissemination of this information or reproduction of this material
-is strictly forbidden unless prior written permission is obtained
-from bit-bot-bit.
+1. Rights Granted.
+
+Subject to the terms and conditions of this License, Licensor grants you a
+royalty-free, non-exclusive, non-sublicensable license to use, copy, modify,
+and distribute the Software for any Noncommercial Purpose.
+
+2. Limitations.
+
+You may not use the Software for any Commercial Purpose.
+
+3. Agreement.
+
+Use of the Software constitutes acceptance of this License.
+
+4. Definitions.
+
+"Commercial Purpose" means any use or distribution of the Software (or any
+product, service, or other technology containing or derived from the Software)
+for direct or indirect commercial advantage, financial gain, or monetary
+compensation.
+
+"Licensor" means bit-bot-bit.
+
+"Noncommercial Purpose" means any use or distribution of the Software (or any
+product, service, or other technology containing or derived from the Software)
+that is not a Commercial Purpose.
+
+"Software" means the software distributed with this License, and any future
+versions, improvements, or updates provided by Licensor.
+
+5. Disclaimer and Limitation of Liability.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -1,151 +1,41 @@
-import net from 'node:net';
-import tls from 'node:tls';
 import crypto from 'node:crypto';
+import Redis from 'ioredis';
 
-function parseRedisUrl() {
+function getRedisConfig() {
   const raw = process.env.BEWRITTEN_REDIS_URL || process.env.REDIS_URL || '';
-  if (!raw) {
-    const host = String(process.env.BEWRITTEN_REDIS_HOST || '').trim();
-    if (!host) return null;
-    const port = Number(process.env.BEWRITTEN_REDIS_PORT || 6379);
-    const db = Number(process.env.BEWRITTEN_REDIS_DB || 0) || 0;
-    const password = String(process.env.BEWRITTEN_REDIS_PASSWORD || '').trim() || null;
-    const useTls = String(process.env.BEWRITTEN_REDIS_TLS || 'false').toLowerCase() === 'true';
-    return {
-      raw: '',
-      host,
-      port,
-      tls: useTls,
-      password,
-      db,
-    };
-  }
+  if (raw) return raw;
 
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== 'redis:' && url.protocol !== 'rediss:') return null;
-    return {
-      raw,
-      host: url.hostname,
-      port: Number(url.port || 6379),
-      tls: url.protocol === 'rediss:',
-      password: url.password || null,
-      db: Number((url.pathname || '/0').replace('/', '')) || 0,
-    };
-  } catch {
-    return null;
-  }
+  const host = String(process.env.BEWRITTEN_REDIS_HOST || '').trim();
+  if (!host) return null;
+
+  return {
+    host,
+    port: Number(process.env.BEWRITTEN_REDIS_PORT || 6379),
+    password: String(process.env.BEWRITTEN_REDIS_PASSWORD || '').trim() || undefined,
+    db: Number(process.env.BEWRITTEN_REDIS_DB || 0),
+    tls: String(process.env.BEWRITTEN_REDIS_TLS || 'false').toLowerCase() === 'true' ? {} : undefined,
+  };
 }
 
-function encodeCommand(parts) {
-  const chunks = [`*${parts.length}\r\n`];
-  for (const part of parts) {
-    const value = String(part ?? '');
-    chunks.push(`$${Buffer.byteLength(value)}\r\n${value}\r\n`);
-  }
-  return Buffer.from(chunks.join(''), 'utf8');
+const redisConfig = getRedisConfig();
+const redisClient = redisConfig ? new Redis(redisConfig, {
+  retryStrategy: (times) => Math.min(times * 50, 2000),
+  maxRetriesPerRequest: 1,
+  showFriendlyErrorStack: process.env.NODE_ENV !== 'production',
+}) : null;
+
+if (redisClient) {
+  redisClient.on('error', (err) => {
+    // Suppress connectivity errors to avoid crashing, but log them
+    console.warn('Redis connection error:', err.message);
+  });
 }
-
-function parseOneValue(buffer, offset = 0) {
-  if (offset >= buffer.length) return null;
-  const prefix = String.fromCharCode(buffer[offset]);
-  const lineEnd = buffer.indexOf('\r\n', offset);
-  if (lineEnd === -1) return null;
-
-  if (prefix === '+' || prefix === '-' || prefix === ':') {
-    const raw = buffer.toString('utf8', offset + 1, lineEnd);
-    const nextOffset = lineEnd + 2;
-    if (prefix === '-') return { value: new Error(raw), nextOffset };
-    if (prefix === ':') return { value: Number(raw), nextOffset };
-    return { value: raw, nextOffset };
-  }
-
-  if (prefix === '$') {
-    const len = Number(buffer.toString('utf8', offset + 1, lineEnd));
-    const next = lineEnd + 2;
-    if (len === -1) return { value: null, nextOffset: next };
-    const end = next + len;
-    if (buffer.length < end + 2) return null;
-    return { value: buffer.toString('utf8', next, end), nextOffset: end + 2 };
-  }
-
-  if (prefix === '*') {
-    const count = Number(buffer.toString('utf8', offset + 1, lineEnd));
-    if (count === -1) return { value: null, nextOffset: lineEnd + 2 };
-    let nextOffset = lineEnd + 2;
-    const arr = [];
-    for (let i = 0; i < count; i += 1) {
-      const parsed = parseOneValue(buffer, nextOffset);
-      if (!parsed) return null;
-      arr.push(parsed.value);
-      nextOffset = parsed.nextOffset;
-    }
-    return { value: arr, nextOffset };
-  }
-
-  return null;
-}
-
-class RedisRawClient {
-  constructor(config) {
-    this.config = config;
-  }
-
-  command(parts) {
-    return new Promise((resolve, reject) => {
-      const { host, port, tls: useTls, password, db } = this.config;
-      const socket = useTls ? tls.connect({ host, port, servername: host }) : net.createConnection({ host, port });
-      let settled = false;
-      let recv = Buffer.alloc(0);
-      const queue = [];
-
-      const finish = (err, value) => {
-        if (settled) return;
-        settled = true;
-        socket.destroy();
-        if (err) reject(err);
-        else resolve(value);
-      };
-
-      socket.on('error', (err) => finish(err));
-      socket.setTimeout(4000, () => finish(new Error('Redis command timeout')));
-      socket.on('connect', () => {
-        if (password) queue.push(['AUTH', password]);
-        if (db) queue.push(['SELECT', String(db)]);
-        queue.push(parts);
-        socket.write(Buffer.concat(queue.map((cmd) => encodeCommand(cmd))));
-      });
-
-      socket.on('data', (chunk) => {
-        recv = Buffer.concat([recv, chunk]);
-        let parsed = parseOneValue(recv, 0);
-        if (!parsed) return;
-
-        const values = [];
-        while (parsed) {
-          values.push(parsed.value);
-          recv = recv.subarray(parsed.nextOffset);
-          parsed = parseOneValue(recv, 0);
-        }
-
-        if (values.length < queue.length) return;
-        const firstError = values.find((v) => v instanceof Error);
-        if (firstError) return finish(firstError);
-        const last = values[values.length - 1];
-        finish(null, last);
-      });
-    });
-  }
-}
-
-const redisConfig = parseRedisUrl();
-const redisClient = redisConfig ? new RedisRawClient(redisConfig) : null;
 
 export function getTransientInfo() {
   return {
     enabled: Boolean(redisClient),
     backend: redisClient ? 'redis' : 'none',
-    redisUrlConfigured: Boolean(redisConfig?.raw),
+    redisUrlConfigured: Boolean(process.env.BEWRITTEN_REDIS_URL || process.env.REDIS_URL || process.env.BEWRITTEN_REDIS_HOST),
   };
 }
 
@@ -154,36 +44,54 @@ export async function withTransientLock(key, ttlMs, fn) {
 
   const token = crypto.randomUUID();
   const lockKey = `bewritten:lock:${key}`;
-  const acquired = await redisClient.command(['SET', lockKey, token, 'NX', 'PX', String(ttlMs)]);
-  if (acquired !== 'OK') {
-    const err = new Error('This content is currently being updated in another request. Please retry.');
-    err.code = 'TRANSIENT_LOCKED';
-    throw err;
+
+  try {
+    const acquired = await redisClient.set(lockKey, token, 'NX', 'PX', ttlMs);
+    if (acquired !== 'OK') {
+      const err = new Error('This content is currently being updated in another request. Please retry.');
+      err.code = 'TRANSIENT_LOCKED';
+      throw err;
+    }
+  } catch (error) {
+    // If Redis is down, fallback to no lock (optimistic concurrency)
+    // or rethrow if it was the lock contention error
+    if (error?.code === 'TRANSIENT_LOCKED') throw error;
+    console.warn('Redis lock failed, falling back to unlocked execution:', error.message);
+    return await fn();
   }
 
   try {
     return await fn();
   } finally {
     try {
-      await redisClient.command([
-        'EVAL',
+      // Safe release using Lua script
+      await redisClient.eval(
         "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
-        '1',
+        1,
         lockKey,
-        token,
-      ]);
-    } catch {
-      // ignore release errors for transient locks
+        token
+      );
+    } catch (e) {
+      console.warn('Failed to release lock:', e.message);
     }
   }
 }
 
 export async function incrementTransientCounter(key, windowSeconds) {
   if (!redisClient) return 0;
+
   const counterKey = `bewritten:counter:${key}`;
-  const count = await redisClient.command(['INCR', counterKey]);
-  if (Number(count) === 1) {
-    await redisClient.command(['EXPIRE', counterKey, String(windowSeconds)]);
+  try {
+    const pipeline = redisClient.pipeline();
+    pipeline.incr(counterKey);
+    pipeline.expire(counterKey, windowSeconds);
+    const results = await pipeline.exec();
+
+    // results[0] is [error, count]
+    if (results?.[0]?.[0]) throw results[0][0];
+    return Number(results?.[0]?.[1] || 0);
+  } catch (error) {
+    console.warn('Redis counter failed:', error.message);
+    return 0;
   }
-  return Number(count || 0);
 }

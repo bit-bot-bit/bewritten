@@ -19,6 +19,7 @@ import {
   fetchUserSettings,
   fetchCurrentUser,
   listStories,
+  fetchStoryById,
   saveUserSettings,
   saveStoryForUser,
 } from './services/storyService';
@@ -197,24 +198,42 @@ const App = () => {
       setSaveMessage('Saved');
       return;
     }
+
+    // Initialize with placeholders for metadata-only rows
     const normalizedRows = rows.map((story) => ({
       ...story,
-      aiInsights: story?.aiInsights && typeof story.aiInsights === 'object'
-        ? {
-            synopsis: String(story.aiInsights.synopsis || ''),
-            backCover: String(story.aiInsights.backCover || ''),
-            detailedNotes: String(story.aiInsights.detailedNotes || ''),
-          }
-        : { synopsis: '', backCover: '', detailedNotes: '' },
-      storyNotes: String(story?.storyNotes || ''),
-      preservedVersions: Array.isArray(story?.preservedVersions) ? story.preservedVersions.slice(0, 10) : [],
-      genre: typeof story.genre === 'string' ? story.genre : '',
-      aiReviews: Array.isArray(story.aiReviews) ? story.aiReviews.slice(0, 3) : [],
+      chapters: story.chapters || [{ id: 'loading', title: 'Loading...', content: '', order: 1 }],
+      currentChapterId: story.currentChapterId || 'loading',
+      characters: story.characters || [],
+      locations: story.locations || [],
+      plotPoints: story.plotPoints || [],
+      aiInsights: story.aiInsights || { synopsis: '', backCover: '', detailedNotes: '' },
+      storyNotes: story.storyNotes || '',
+      preservedVersions: story.preservedVersions || [],
+      genre: story.genre || '',
+      aiReviews: story.aiReviews || [],
     }));
+
     setStories(normalizedRows);
     setSaveState('saved');
     setSaveMessage('Saved');
-    if (!activeStoryId || !normalizedRows.find((s) => s.id === activeStoryId)) setActiveStoryId(normalizedRows[0].id);
+
+    // If we have an active ID, select it (triggering load). If not, select first.
+    const targetId = activeStoryId && normalizedRows.find((s) => s.id === activeStoryId)
+      ? activeStoryId
+      : normalizedRows[0].id;
+
+    if (targetId) {
+      setActiveStoryId(targetId);
+      // We manually call the selection logic here because setting state doesn't trigger it immediately
+      // But we can't await state. Instead, use an effect or just let the user click.
+      // Better: check if we need to load the *initial* story right now.
+      loadStoryDetails(targetId).then((full) => {
+        if (full) {
+             setStories(prev => prev.map(s => s.id === targetId ? full : s));
+        }
+      });
+    }
   };
 
   const hydrateThemeFromUserSettings = async () => {
@@ -310,8 +329,44 @@ const App = () => {
     setStories((prev) => prev.map((story) => (story.id === updatedStory.id ? updatedStory : story)));
   };
 
-  const handleSelectStory = (id) => {
+  const loadStoryDetails = async (id) => {
+    try {
+      setSaveMessage('Loading...');
+      const fullStory = await fetchStoryById(id);
+      if (!fullStory) return null;
+
+      const normalized = {
+        ...fullStory,
+        aiInsights: fullStory?.aiInsights && typeof fullStory.aiInsights === 'object'
+          ? {
+              synopsis: String(fullStory.aiInsights.synopsis || ''),
+              backCover: String(fullStory.aiInsights.backCover || ''),
+              detailedNotes: String(fullStory.aiInsights.detailedNotes || ''),
+            }
+          : { synopsis: '', backCover: '', detailedNotes: '' },
+        storyNotes: String(fullStory?.storyNotes || ''),
+        preservedVersions: Array.isArray(fullStory?.preservedVersions) ? fullStory.preservedVersions.slice(0, 10) : [],
+        genre: typeof fullStory.genre === 'string' ? fullStory.genre : '',
+        aiReviews: Array.isArray(fullStory.aiReviews) ? fullStory.aiReviews.slice(0, 3) : [],
+      };
+      setSaveMessage('Saved');
+      return normalized;
+    } catch {
+      setSaveMessage('Error loading story');
+      return null;
+    }
+  };
+
+  const handleSelectStory = async (id) => {
     setActiveStoryId(id);
+    const current = stories.find(s => s.id === id);
+    // If it's a placeholder (loading chapter), fetch details
+    if (current && current.chapters?.[0]?.id === 'loading') {
+       const full = await loadStoryDetails(id);
+       if (full) {
+         setStories(prev => prev.map(s => s.id === id ? full : s));
+       }
+    }
     setStoryUnlocked(true);
     setActiveTab(AppTab.WRITE);
   };

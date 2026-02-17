@@ -64,6 +64,15 @@ The application supports multiple visual themes to match your writing mood:
 *   **API Key**: This application requires a valid Google Gemini API Key provided in the environment variables.
 *   **Production Secrets**: Default admin/password and secret key values are for development only. In Kubernetes, use chart-backed Secret refs (or `secrets.existingSecret`) before production deployment.
 
+## 📄 License
+
+This project is licensed under the **Polyform Noncommercial License 1.0.0**.
+
+*   **Free for Personal Use:** You are free to use, modify, and distribute this software for non-commercial purposes.
+*   **Commercial Use:** Any use for commercial advantage, financial gain, or monetary compensation requires a separate commercial license from the original authors (**bit-bot-bit**).
+
+See [LICENSE](LICENSE) for the full license text.
+
 ---
 
 *Craft Worlds. Weave Myths.*
