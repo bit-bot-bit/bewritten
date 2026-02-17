@@ -1,7 +1,7 @@
 {
   "name": "mythos-ai:-story-architect",
   "private": true,
-  "version": "0.1.26",
+  "version": "0.1.27",
   "type": "module",
   "license": "Polyform-Noncommercial-1.0.0",
   "scripts": {
