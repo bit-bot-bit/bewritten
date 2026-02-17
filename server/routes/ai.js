@@ -224,7 +224,34 @@ const buildConsensus = (runs = []) => {
 router.post('/continuity', (req, res) =>
   handleAi(req, res, 'continuity', async () => {
     const { storyText, characters = [], locations = [], plotPoints = [] } = req.body;
-    const prompt = `You are a continuity editor.\nCharacters:${JSON.stringify(characters)}\nLocations:${JSON.stringify(locations)}\nPlot:${JSON.stringify(plotPoints)}\nText:${String(storyText || '').slice(0, 40000)}`;
+
+    // PRIORITIZE RECENT CONTEXT: Slice from the end (-50000) to capture the latest chapters.
+    // If the story is short, slice(-50000) returns the whole string.
+    const textContext = String(storyText || '').slice(-50000);
+
+    const prompt = [
+      'You are an expert continuity editor for fiction.',
+      'Your task is to identify logical contradictions between the provided Story Bible and the Manuscript Text.',
+      '',
+      '--- STORY BIBLE ---',
+      `Characters: ${JSON.stringify(characters)}`,
+      `Locations: ${JSON.stringify(locations)}`,
+      `Plot Points: ${JSON.stringify(plotPoints)}`,
+      '',
+      '--- MANUSCRIPT TEXT (Recent Content) ---',
+      textContext,
+      '',
+      '--- INSTRUCTIONS ---',
+      'Analyze the text for these specific continuity errors:',
+      '1. Status Conflicts: Dead characters reappearing, or characters being in two places at once.',
+      '2. Fact Contradictions: Traits (eye color, age) or backstory details that contradict the Character profiles.',
+      '3. Timeline Errors: Events happening out of order defined in Plot Points.',
+      '4. World Rules: Violations of established location rules or atmosphere.',
+      '',
+      'Ignore minor stylistic issues or grammar.',
+      'Return a JSON object with a "results" array matching the schema.',
+    ].join('\n');
+
     const results = await runJsonPrompt({ prompt, schema: Schema.continuity, fallback: [], actorEmail: req.auth.email });
     return { results };
   })
@@ -478,8 +505,8 @@ router.post('/story-review', (req, res) =>
         priorityFixes: ['Add at least one complete chapter before requesting review.'],
         riskScore: 7,
         },
-      actorEmail: req.auth.email,
-    });
+        actorEmail: req.auth.email,
+      });
     return { review };
   })
 );

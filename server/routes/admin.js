@@ -17,6 +17,7 @@ import {
   getMonetizationDefaults,
   saveMonetizationConfig,
   setUserTierByAdmin,
+  setUserCreditBalance,
 } from '../monetization.js';
 import { getOAuthDiagnostics } from '../oauth.js';
 
@@ -90,6 +91,19 @@ router.put('/users/:email/tier', async (req, res) => {
     const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
     const tier = String(req.body?.tier || 'byok').trim().toLowerCase();
     await setUserTierByAdmin(req.auth.email, email, tier);
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+router.put('/users/:email/credits', async (req, res) => {
+  try {
+    const email = decodeURIComponent(req.params.email || '').trim().toLowerCase();
+    const balance = req.body?.balance;
+    if (balance === undefined || balance === null) return res.status(400).json({ error: 'Balance is required' });
+
+    await setUserCreditBalance(req.auth.email, email, balance);
     return res.json({ ok: true });
   } catch (error) {
     return res.status(400).json({ error: String(error.message || error) });

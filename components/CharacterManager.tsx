@@ -13,6 +13,7 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [newCharPrompt, setNewCharPrompt] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!newCharPrompt.trim()) return;
@@ -141,28 +142,39 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {characters.map(char => (
-          <div key={char.id} className="bg-card border border-border rounded-2xl p-6 group hover:border-accent/50 transition-all">
+          <div key={char.id} className="bg-card border border-border rounded-2xl p-6 group hover:border-accent/50 transition-all relative">
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-muted">
+                <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-muted shrink-0">
                   <User size={20} />
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg text-main">{char.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-lg text-main truncate pr-2">{char.name}</h3>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface text-muted uppercase tracking-wider">
                     {char.role}
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => deleteCharacter(char.id)}
-                className="text-muted hover:text-red-400 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setExpandedId(expandedId === char.id ? null : char.id)}
+                  className="text-muted hover:text-accent p-1.5 rounded-lg hover:bg-surface transition-colors"
+                  title={expandedId === char.id ? "Collapse" : "Expand"}
+                >
+                  <Plus size={18} className={`transition-transform duration-200 ${expandedId === char.id ? 'rotate-45' : ''}`} />
+                </button>
+                <button
+                  onClick={() => deleteCharacter(char.id)}
+                  className="text-muted hover:text-red-400 p-1.5 rounded-lg hover:bg-red-900/10 transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
             
-            <p className="text-muted text-sm mb-4 line-clamp-3 whitespace-pre-line break-words">{char.description}</p>
+            <div className={`text-muted text-sm mb-4 whitespace-pre-line break-words transition-all ${expandedId === char.id ? '' : 'line-clamp-3'}`}>
+                {char.description}
+            </div>
             
             <div className="flex flex-wrap gap-2">
               {char.traits.map((trait, i) => (

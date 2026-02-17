@@ -366,6 +366,27 @@ export async function chargeTokensForTask(email, task, options = {}) {
   });
 }
 
+export async function setUserCreditBalance(actorEmail, targetEmail, balance) {
+  const target = String(targetEmail || '').trim().toLowerCase();
+  const nextBalance = Math.max(0, parseInt(balance, 10));
+  if (!Number.isFinite(nextBalance)) throw new Error('Invalid balance');
+
+  const key = `credits:${target}`;
+  return withTransientLock(key, 5000, async () => {
+    // Ensure row exists
+    await ensureCreditsRow(target);
+    const db = getDb();
+    await db('user_credits')
+      .where('user_email', target)
+      .update({ balance: nextBalance, updated_at: nowIso() }); // We do not touch last_refill_day to avoid resetting the refill timer?
+      // Actually, if we set a specific balance, we probably want to keep the refill schedule or reset it?
+      // If we don't update last_refill_day, the next time getUserCreditStatus is called, it might add refill amount if days passed.
+      // This seems acceptable for "setting" a balance.
+
+    return { balance: nextBalance };
+  });
+}
+
 export async function resolveRuntimeForUser(email, userSettings, fallbackRuntime) {
   const tier = await getUserTier(email);
   const cfg = await getMonetizationConfig({ includeSecret: true });

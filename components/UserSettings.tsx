@@ -88,6 +88,22 @@ export const UserSettings = () => {
         )}
       </div>
 
+      {Object.keys(settings.taskCosts || {}).length > 0 && (
+        <div className="border border-border rounded-xl overflow-hidden mb-4">
+          <div className="px-4 py-2 bg-surface/40 border-b border-border text-xs font-semibold uppercase tracking-wide text-muted">
+            Service Costs (Tokens)
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 text-xs">
+            {Object.entries(settings.taskCosts || {}).map(([task, cost]) => (
+              <div key={task} className="flex justify-between items-center bg-card border border-border rounded px-2 py-1.5">
+                <span className="text-muted truncate mr-2">{task}</span>
+                <span className="font-mono text-accent">{String(cost)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         <label className="block text-sm text-muted">AI Target</label>
         <select
