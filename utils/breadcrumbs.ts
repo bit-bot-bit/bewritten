@@ -105,14 +105,29 @@ export function createBreadcrumbHtml(id: string, label: string): string {
 export function htmlToContent(html: string): string {
   if (!html) return '';
 
-  // 1. Replace breadcrumb widgets with markers
-  // Match the outer div of the widget.
-  const widgetRegex = /<div[^>]*class=["'].*?breadcrumb-widget.*?["'][^>]*data-id=["'](\w+)["'][^>]*data-label=["']([\s\S]*?)["'][^>]*>[\s\S]*?<\/div>/gi;
+  // Use DOMParser to handle the structure safely and prevent nested widget garbage
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
 
-  let content = html.replace(widgetRegex, (match, id, label) => {
-    const decodedLabel = label.replace(/&quot;/g, '"');
-    return createBreadcrumbMarker(id, decodedLabel);
+  // 1. Replace breadcrumb widgets with markers
+  const widgets = doc.body.querySelectorAll('.breadcrumb-widget');
+  widgets.forEach(widget => {
+      const id = widget.getAttribute('data-id');
+      const label = widget.getAttribute('data-label');
+
+      if (id && label) {
+          // Create the marker string
+          const markerStr = createBreadcrumbMarker(id, label);
+          // Replace widget with text node containing the marker
+          // innerHTML later will escape this (&lt;!-- ...), matching decoding logic
+          widget.replaceWith(doc.createTextNode(markerStr));
+      } else {
+          // Clean up malformed widgets
+          widget.remove();
+      }
   });
+
+  let content = doc.body.innerHTML;
 
   // 2. Clean up block-level elements that browsers insert for newlines
   content = content

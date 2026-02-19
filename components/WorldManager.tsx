@@ -65,12 +65,25 @@ export const WorldManager: React.FC<WorldManagerProps> = ({ locations, setLocati
               }
 
               if (locIndex !== -1) {
-                  // Add history event
-                  updatedLocations[locIndex].history.push({
-                      id: crypto.randomUUID(),
-                      chapterId: currentChapter.id,
-                      description: evt.eventDescription
-                  });
+                  // Clone to avoid mutation
+                  updatedLocations[locIndex] = { ...updatedLocations[locIndex], history: [...updatedLocations[locIndex].history] };
+
+                  const existingHistoryIndex = updatedLocations[locIndex].history.findIndex(h => h.chapterId === currentChapter.id);
+
+                  if (existingHistoryIndex !== -1) {
+                      // Update existing
+                      updatedLocations[locIndex].history[existingHistoryIndex] = {
+                          ...updatedLocations[locIndex].history[existingHistoryIndex],
+                          description: evt.eventDescription
+                      };
+                  } else {
+                      // Add new history event
+                      updatedLocations[locIndex].history.push({
+                          id: crypto.randomUUID(),
+                          chapterId: currentChapter.id,
+                          description: evt.eventDescription
+                      });
+                  }
               }
           });
 
