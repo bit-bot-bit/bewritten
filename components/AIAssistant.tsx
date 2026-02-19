@@ -66,11 +66,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
         return (
             <button 
                 onClick={openAssistant}
-                className={`fixed bg-accent hover:brightness-110 text-white p-4 rounded-full shadow-2xl transition-all z-50 flex items-center gap-2 ${
-                    isMobile ? 'bottom-24 right-4' : 'bottom-6 right-6'
+                className={`fixed bg-accent hover:brightness-110 text-white shadow-2xl transition-all z-50 flex items-center gap-2 ${
+                    isMobile
+                        ? 'top-2 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm'
+                        : 'bottom-6 right-6 p-4 rounded-full'
                 }`}
             >
-                <MessageSquare size={24} />
+                <MessageSquare size={isMobile ? 18 : 24} />
                 <span className="font-medium pr-1">Co-Author</span>
             </button>
         );
@@ -80,7 +82,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
         return (
             <div
                 className={`fixed bg-surface border border-border rounded-xl shadow-2xl z-50 flex items-center justify-between px-3 py-2 ${
-                    isMobile ? 'left-3 right-3 bottom-24' : 'bottom-6 right-6 w-80'
+                    isMobile ? 'left-3 right-3 top-14' : 'bottom-6 right-6 w-80'
                 }`}
                 style={{ backgroundColor: 'var(--color-surface)' }}
             >
