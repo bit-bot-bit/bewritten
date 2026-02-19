@@ -384,6 +384,7 @@ const App = () => {
   const handlePasswordChange = async (currentPassword, newPassword) => {
     const updated = await changeCurrentUserPassword(currentPassword, newPassword);
     setUser((prev) => ({ ...prev, ...updated }));
+    await refreshStories();
   };
 
   const handleThemeToggle = () => {
