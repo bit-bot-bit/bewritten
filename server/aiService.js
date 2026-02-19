@@ -265,4 +265,21 @@ export const Schema = {
       riskScore: { type: Type.NUMBER },
     },
   },
+  storyImport: {
+    type: Type.OBJECT,
+    properties: {
+      title: { type: Type.STRING },
+      chapters: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            order: { type: Type.NUMBER },
+          },
+        },
+      },
+    },
+  },
 };

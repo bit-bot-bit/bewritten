@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PlotPoint, Character, Chapter, Theme, StoryPlotConsensusCache, PlotEstimateResponse } from '../types';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Plus, Trash2, Zap, ScanSearch, Loader2, BrainCircuit, Layers3 } from 'lucide-react';
+import { Plus, Trash2, Zap, ScanSearch, Loader2, BrainCircuit, Layers3, ChevronUp, ChevronDown } from 'lucide-react';
 import { suggestNextPlotPoint, extractPlotPointsFromText, estimatePlotConsensus } from '../services/geminiService';
 
 interface TimelineManagerProps {
@@ -13,6 +13,7 @@ interface TimelineManagerProps {
   chapters: Chapter[];
   plotConsensusCache?: StoryPlotConsensusCache;
   setPlotConsensusCache: (updater: StoryPlotConsensusCache | ((prev?: StoryPlotConsensusCache) => StoryPlotConsensusCache)) => void;
+  isMobile?: boolean;
 }
 
 type RunView = 'consensus' | 'run1' | 'run2' | 'run3';
@@ -44,11 +45,13 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
   chapters,
   plotConsensusCache,
   setPlotConsensusCache,
+  isMobile = false,
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
   const [runView, setRunView] = useState<RunView>('consensus');
   const [scopeView, setScopeView] = useState<ScopeView>('chapter');
+  const [isListExpanded, setIsListExpanded] = useState(false);
 
   const pointsForChapter = plotPoints.filter((p) => (p.chapterId || '') === currentChapter.id);
   const listPoints = pointsForChapter.sort((a, b) => a.order - b.order);
@@ -181,154 +184,204 @@ export const TimelineManager: React.FC<TimelineManagerProps> = ({
   const textColor = currentTheme.colors.textMuted;
   const tooltipBg = currentTheme.colors.card;
 
+  const listContent = (
+    <div className="flex flex-col h-full">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
+            <div>
+                <h2 className="text-2xl font-bold text-main">Plot Outline</h2>
+                <p className="text-xs text-muted mt-1">Events extracted from story or added manually</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                <button
+                    onClick={handleScan}
+                    disabled={isScanning}
+                    className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50"
+                    title="Scan Chapter for Plot Points"
+                >
+                    {isScanning ? <Loader2 size={20} className="animate-spin"/> : <ScanSearch size={20} />}
+                </button>
+                <button onClick={handleSuggest} className="p-2 bg-purple-900/50 text-purple-400 rounded-lg hover:bg-purple-900 hover:text-white transition-colors border border-purple-500/30" title="AI Suggest Next">
+                    <Zap size={20} />
+                </button>
+                <button onClick={addPoint} className="p-2 bg-card text-main rounded-lg hover:bg-surface transition-colors border border-border">
+                    <Plus size={20} />
+                </button>
+            </div>
+        </div>
+
+        <div className="space-y-4 pb-12">
+            {listPoints.map((point, index) => (
+                <div key={point.id} className="bg-card border border-border rounded-lg p-4 group">
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="text-muted font-mono text-sm">#{index + 1}</span>
+                        <input
+                            value={point.title}
+                            onChange={(e) => updatePoint(point.id, { title: e.target.value })}
+                            className="themed-control flex-1 font-semibold text-main focus:text-accent outline-none px-2 py-1 rounded border border-transparent"
+                            style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
+                        />
+                        <button onClick={() => deletePoint(point.id)} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                    <textarea
+                        value={point.description}
+                        onChange={(e) => updatePoint(point.id, { description: e.target.value })}
+                        className="themed-control w-full rounded p-2 text-sm text-main mb-3 outline-none resize-none h-20 border"
+                        style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
+                    />
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted">Tension</label>
+                            <input
+                                type="range"
+                                min="1" max="10"
+                                value={point.tensionLevel}
+                                onChange={(e) => updatePoint(point.id, { tensionLevel: parseInt(e.target.value) })}
+                                className="w-24 h-1 bg-surface rounded-lg appearance-none cursor-pointer"
+                            />
+                            <span className="text-xs font-mono text-accent">{point.tensionLevel}</span>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+  );
+
+  const chartContent = (
+    <div className="flex flex-col h-full">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="text-xl font-bold text-main">Tension Arc</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => runEstimate('chapter')}
+              disabled={isEstimating}
+              className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50"
+              title={`Estimate for ${currentChapter.title}`}
+            >
+              {isEstimating && scopeView === 'chapter' ? <Loader2 size={18} className="animate-spin" /> : <BrainCircuit size={18} />}
+            </button>
+            <button
+              onClick={() => runEstimate('all')}
+              disabled={isEstimating}
+              className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50"
+              title="Estimate for all chapters"
+            >
+              {isEstimating && scopeView === 'all' ? <Loader2 size={18} className="animate-spin" /> : <Layers3 size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['consensus', 'run1', 'run2', 'run3'] as RunView[]).map((key) => (
+            <button
+              key={key}
+              onClick={() => setRunView(key)}
+              disabled={!activeEstimate.consensus.length && !activeEstimate.runs.some((r) => r.length)}
+              className={`text-xs px-3 py-1 rounded-full border transition ${
+                runView === key ? 'bg-accent text-white border-accent' : 'bg-card text-muted border-border hover:text-main'
+              } disabled:opacity-50`}
+            >
+              {RUN_LABELS[key]}
+            </button>
+          ))}
+          <span className="text-xs text-muted self-center">
+            Scope: {scopeView === 'all' ? 'All Chapters' : currentChapter.title}
+          </span>
+        </div>
+
+        <div className="flex-1 min-h-[260px] md:min-h-[300px] w-full bg-card/20 rounded-2xl border border-border p-3 md:p-4">
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis
+                        dataKey="index"
+                        stroke={textColor}
+                        interval={0}
+                        height={42}
+                        label={{ value: 'Plot Point', position: 'insideBottom', offset: -4, fill: textColor }}
+                    />
+                    <YAxis
+                        stroke={textColor}
+                        domain={[0, 10]}
+                        label={{ value: 'Tension', angle: -90, position: 'insideLeft', fill: textColor }}
+                    />
+                    <Tooltip
+                        contentStyle={{ backgroundColor: tooltipBg, borderColor: gridColor, color: textColor }}
+                        itemStyle={{ color: accentColor }}
+                        formatter={(value, _name, payload) => [value, payload?.payload?.title || 'Tension']}
+                    />
+                    <Line
+                        type="monotone"
+                        dataKey="tension"
+                        stroke={accentColor}
+                        strokeWidth={3}
+                        dot={{ fill: accentColor, strokeWidth: 2 }}
+                        activeDot={{ r: 8 }}
+                    />
+                </LineChart>
+            </ResponsiveContainer>
+        </div>
+
+        <div className="mt-8 p-6 bg-card/40 rounded-xl border border-border">
+            <h4 className="font-semibold text-main mb-2">Plot Tracker</h4>
+            <p className="text-sm text-muted">
+                Scan and suggest work on the selected chapter only. Use the brain buttons to run three AI estimations
+                and switch between consensus and individual runs.
+            </p>
+        </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="relative w-full h-full overflow-hidden bg-surface/50">
+        {/* Main Content: Chart */}
+        <div className="absolute inset-0 pb-14 overflow-y-auto p-4">
+           {chartContent}
+        </div>
+
+        {/* Bottom Sheet: List */}
+        <div
+          className={`
+            absolute bottom-0 left-0 right-0 z-20
+            bg-surface/92 backdrop-blur-xl border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]
+            transition-all duration-300 ease-out flex flex-col
+          `}
+          style={{ height: isListExpanded ? '85%' : '3.5rem' }}
+        >
+           {/* Handle */}
+           <button
+             onClick={() => setIsListExpanded(!isListExpanded)}
+             className="h-14 min-h-[3.5rem] flex items-center justify-between px-4 w-full border-b border-white/5 active:bg-white/5 transition-colors"
+           >
+             <div className="flex items-center gap-2">
+               <span className="font-semibold text-main">Plot Outline</span>
+               <span className="text-xs text-muted bg-surface/50 px-2 py-0.5 rounded-full">{listPoints.length}</span>
+             </div>
+             {isListExpanded ? <ChevronDown className="text-muted" size={20}/> : <ChevronUp className="text-muted" size={20}/>}
+           </button>
+
+           {/* Content */}
+           <div className="flex-1 overflow-y-auto p-4">
+             {listContent}
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col lg:flex-row h-full overflow-x-hidden">
         {/* Left: List */}
         <div className="w-full lg:w-1/2 p-4 md:p-8 overflow-y-auto border-b lg:border-b-0 lg:border-r border-border">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
-                <div>
-                    <h2 className="text-2xl font-bold text-main">Plot Outline</h2>
-                    <p className="text-xs text-muted mt-1">Events extracted from story or added manually</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <button 
-                        onClick={handleScan} 
-                        disabled={isScanning}
-                        className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50" 
-                        title="Scan Chapter for Plot Points"
-                    >
-                        {isScanning ? <Loader2 size={20} className="animate-spin"/> : <ScanSearch size={20} />}
-                    </button>
-                    <button onClick={handleSuggest} className="p-2 bg-purple-900/50 text-purple-400 rounded-lg hover:bg-purple-900 hover:text-white transition-colors border border-purple-500/30" title="AI Suggest Next">
-                        <Zap size={20} />
-                    </button>
-                    <button onClick={addPoint} className="p-2 bg-card text-main rounded-lg hover:bg-surface transition-colors border border-border">
-                        <Plus size={20} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                {listPoints.map((point, index) => (
-                    <div key={point.id} className="bg-card border border-border rounded-lg p-4 group">
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="text-muted font-mono text-sm">#{index + 1}</span>
-                            <input 
-                                value={point.title}
-                                onChange={(e) => updatePoint(point.id, { title: e.target.value })}
-                                className="themed-control flex-1 font-semibold text-main focus:text-accent outline-none px-2 py-1 rounded border border-transparent"
-                                style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
-                            />
-                            <button onClick={() => deletePoint(point.id)} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400">
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                        <textarea 
-                            value={point.description}
-                            onChange={(e) => updatePoint(point.id, { description: e.target.value })}
-                            className="themed-control w-full rounded p-2 text-sm text-main mb-3 outline-none resize-none h-20 border"
-                            style={{ color: 'var(--color-text-main)', caretColor: 'var(--color-text-main)' }}
-                        />
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <label className="text-xs text-muted">Tension</label>
-                                <input 
-                                    type="range" 
-                                    min="1" max="10" 
-                                    value={point.tensionLevel}
-                                    onChange={(e) => updatePoint(point.id, { tensionLevel: parseInt(e.target.value) })}
-                                    className="w-24 h-1 bg-surface rounded-lg appearance-none cursor-pointer"
-                                />
-                                <span className="text-xs font-mono text-accent">{point.tensionLevel}</span>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            {listContent}
         </div>
 
         {/* Right: Visualization */}
         <div className="w-full lg:w-1/2 p-4 md:p-8 bg-surface/50 flex flex-col">
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-xl font-bold text-main">Tension Arc</h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => runEstimate('chapter')}
-                  disabled={isEstimating}
-                  className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50"
-                  title={`Estimate for ${currentChapter.title}`}
-                >
-                  {isEstimating && scopeView === 'chapter' ? <Loader2 size={18} className="animate-spin" /> : <BrainCircuit size={18} />}
-                </button>
-                <button
-                  onClick={() => runEstimate('all')}
-                  disabled={isEstimating}
-                  className="p-2 bg-accent-dim text-accent rounded-lg hover:bg-accent/20 transition-colors border border-accent/30 disabled:opacity-50"
-                  title="Estimate for all chapters"
-                >
-                  {isEstimating && scopeView === 'all' ? <Loader2 size={18} className="animate-spin" /> : <Layers3 size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-4 flex flex-wrap gap-2">
-              {(['consensus', 'run1', 'run2', 'run3'] as RunView[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setRunView(key)}
-                  disabled={!activeEstimate.consensus.length && !activeEstimate.runs.some((r) => r.length)}
-                  className={`text-xs px-3 py-1 rounded-full border transition ${
-                    runView === key ? 'bg-accent text-white border-accent' : 'bg-card text-muted border-border hover:text-main'
-                  } disabled:opacity-50`}
-                >
-                  {RUN_LABELS[key]}
-                </button>
-              ))}
-              <span className="text-xs text-muted self-center">
-                Scope: {scopeView === 'all' ? 'All Chapters' : currentChapter.title}
-              </span>
-            </div>
-
-            <div className="flex-1 min-h-[260px] md:min-h-[300px] w-full bg-card/20 rounded-2xl border border-border p-3 md:p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis
-                            dataKey="index"
-                            stroke={textColor}
-                            interval={0}
-                            height={42}
-                            label={{ value: 'Plot Point', position: 'insideBottom', offset: -4, fill: textColor }}
-                        />
-                        <YAxis
-                            stroke={textColor}
-                            domain={[0, 10]}
-                            label={{ value: 'Tension', angle: -90, position: 'insideLeft', fill: textColor }}
-                        />
-                        <Tooltip 
-                            contentStyle={{ backgroundColor: tooltipBg, borderColor: gridColor, color: textColor }}
-                            itemStyle={{ color: accentColor }}
-                            formatter={(value, _name, payload) => [value, payload?.payload?.title || 'Tension']}
-                        />
-                        <Line
-                            type="monotone" 
-                            dataKey="tension" 
-                            stroke={accentColor} 
-                            strokeWidth={3}
-                            dot={{ fill: accentColor, strokeWidth: 2 }}
-                            activeDot={{ r: 8 }}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
-            </div>
-            
-            <div className="mt-8 p-6 bg-card/40 rounded-xl border border-border">
-                <h4 className="font-semibold text-main mb-2">Plot Tracker</h4>
-                <p className="text-sm text-muted">
-                    Scan and suggest work on the selected chapter only. Use the brain buttons to run three AI estimations
-                    and switch between consensus and individual runs.
-                </p>
-            </div>
+            {chartContent}
         </div>
     </div>
   );

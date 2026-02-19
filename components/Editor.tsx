@@ -273,7 +273,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
             : showChapters
               ? 'w-64'
               : 'w-0'
-        } bg-surface border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}
+        } ${isMobile ? 'bg-surface/92 backdrop-blur-xl shadow-2xl' : 'bg-surface'} border-r border-border transition-all duration-300 overflow-hidden flex flex-col`}
       >
         <div className="p-4 flex items-center justify-between bg-card/50">
           <span className="font-semibold text-muted text-sm uppercase tracking-wide">Chapters</span>
