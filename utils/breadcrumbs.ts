@@ -86,7 +86,7 @@ export function createBreadcrumbHtml(id: string, label: string): string {
              w-6 h-6 rounded-full bg-surface border border-border text-muted
              group-hover:text-accent group-hover:border-accent group-hover:bg-accent/10
              cursor-grab active:cursor-grabbing transition-all z-20 shadow-sm"
-            style="left: -3.5rem;">
+            style="left: -2.5rem;">
         ${bookmarkIcon}
       </span>
 
@@ -94,7 +94,7 @@ export function createBreadcrumbHtml(id: string, label: string): string {
 
       <span class="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity
              bg-card text-main text-xs px-2 py-1 rounded shadow-md border border-border whitespace-nowrap z-30 pointer-events-none"
-            style="left: -4rem; transform: translateX(-100%);">
+            style="left: -3.5rem; transform: translateX(-100%);">
         ${label}
       </span>
     </span>
@@ -119,11 +119,12 @@ export function htmlToContent(html: string): string {
       const label = widget.getAttribute('data-label');
 
       if (id && label) {
-          // Create the marker string
-          const markerStr = createBreadcrumbMarker(id, label);
-          // Replace widget with text node containing the marker
-          // innerHTML later will escape this (&lt;!-- ...), matching decoding logic
-          widget.replaceWith(doc.createTextNode(markerStr));
+          // Create the marker as a Comment Node to ensure innerHTML output is a raw comment
+          // We replicate the formatting logic from createBreadcrumbMarker but without the wrapper tags
+          // createBreadcrumbMarker uses: `<!-- breadcrumb:${id}:${safeLabel} -->`
+          const safeLabel = label.replace(/-->/g, '--&gt;');
+          const commentContent = ` breadcrumb:${id}:${safeLabel} `;
+          widget.replaceWith(doc.createComment(commentContent));
       } else {
           // Clean up malformed widgets
           widget.remove();

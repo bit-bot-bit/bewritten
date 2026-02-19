@@ -418,14 +418,14 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
         </div>
 
         {viewMode === 'edit' ? (
-          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col pl-16 md:pl-24">
+          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col">
             <ContentEditableEditor
               key={currentChapter.id}
               content={currentChapter.content}
               onChange={updateContent}
               onKeyDown={handleKeyDown}
               placeholder="Start writing your chapter..."
-              className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto pb-32"
+              className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto overflow-x-hidden pb-32 pl-12 md:pl-16"
             />
           </div>
         ) : (
