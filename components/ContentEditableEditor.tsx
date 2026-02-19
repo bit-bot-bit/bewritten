@@ -98,6 +98,60 @@ export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const widget = target.closest('.breadcrumb-widget');
+    if (widget) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', ''); // Required for some browsers
+      e.dataTransfer.setData('application/x-breadcrumb-id', widget.getAttribute('data-id') || '');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer.types.includes('application/x-breadcrumb-id')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    const id = e.dataTransfer.getData('application/x-breadcrumb-id');
+    if (id && editorRef.current) {
+      e.preventDefault();
+
+      // Sanitize ID for selector usage
+      const safeId = id.replace(/["\\]/g, '\\$&');
+      const oldWidget = editorRef.current.querySelector(`.breadcrumb-widget[data-id="${safeId}"]`);
+      if (oldWidget) {
+        // Determine drop position
+        let range: Range | null = null;
+        if (document.caretRangeFromPoint) {
+          range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if ((document as any).caretPositionFromPoint) {
+          // Firefox fallback
+          const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.collapse(true);
+        }
+
+        if (range) {
+          // Clone and insert at new position
+          const newWidget = oldWidget.cloneNode(true);
+          range.insertNode(newWidget);
+          range.collapse(false);
+
+          // Remove old widget
+          oldWidget.remove();
+
+          // Trigger update
+          handleInput(null as any);
+        }
+      }
+    }
+  };
+
   return (
     <div
       ref={editorRef}
@@ -112,6 +166,9 @@ export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
         isComposingRef.current = false;
         handleInput(null as any);
       }}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       onClick={handleClick}
       role="textbox"
       aria-multiline="true"
