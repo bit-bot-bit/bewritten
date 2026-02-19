@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StoryState, ExportFormat } from '../types';
 import { Download, Layout, Sparkles, X, FileText, Loader2, Printer, FileType } from 'lucide-react';
 import { generateBookLayoutCSS, generateStoryBlurb } from '../services/geminiService';
+import { stripBreadcrumbs } from '../utils/breadcrumbs';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -56,7 +57,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
             let mdContent = `# ${story.title}\n\n`;
             if (blurb) mdContent += `> ${blurb}\n\n---\n\n`;
             story.chapters.forEach(ch => {
-                mdContent += `## ${ch.title}\n\n${ch.content}\n\n`;
+                mdContent += `## ${ch.title}\n\n${stripBreadcrumbs(ch.content)}\n\n`;
             });
             downloadFile(mdContent, 'md', 'text/markdown');
             return;
@@ -66,7 +67,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
             let txtContent = `${story.title.toUpperCase()}\n\n`;
             if (blurb) txtContent += `${blurb}\n\n${'-'.repeat(20)}\n\n`;
             story.chapters.forEach(ch => {
-                txtContent += `\n\n${ch.title.toUpperCase()}\n\n${ch.content}\n`;
+                txtContent += `\n\n${ch.title.toUpperCase()}\n\n${stripBreadcrumbs(ch.content)}\n`;
             });
             downloadFile(txtContent, 'txt', 'text/plain');
             return;
@@ -113,7 +114,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
         ${story.chapters.map(ch => `
             <div class="chapter">
                 <h3 class="chapter-title">${ch.title}</h3>
-                ${ch.content.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
+                ${stripBreadcrumbs(ch.content).split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('')}
             </div>
         `).join('')}
     </div>
