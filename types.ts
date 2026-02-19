@@ -75,7 +75,6 @@ export interface StorySnapshot {
   aiInsights?: {
     synopsis?: string;
     backCover?: string;
-    detailedNotes?: string;
   };
   genre?: string;
   aiReviews?: Array<{
@@ -109,7 +108,6 @@ export interface StoryState {
   aiInsights?: {
     synopsis?: string;
     backCover?: string;
-    detailedNotes?: string;
   };
   storyNotes?: string;
   preservedVersions?: StoryVersion[];
