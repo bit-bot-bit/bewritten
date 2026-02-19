@@ -1,138 +1,124 @@
-
 /**
  * Utility functions for managing breadcrumbs within story content.
  *
- * Format: <!-- breadcrumb:id:Label -->
+ * New Format (Wrappers):
+ * <!-- bc:start:id:Label -->Selected Text<!-- bc:end:id -->
  */
 
 export interface Breadcrumb {
   id: string;
   label: string;
-  index: number; // Character index in the raw text content
+  text: string;
 }
 
-const BREADCRUMB_REGEX = /<!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
+const OLD_BREADCRUMB_REGEX = /<!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
+const BC_START_REGEX = /<!--\s*bc:start:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
+const BC_END_REGEX = /<!--\s*bc:end:([a-zA-Z0-9-]+)\s*-->/g;
 
 /**
  * Parses content to find all breadcrumbs.
  */
 export function parseBreadcrumbs(content: string): Breadcrumb[] {
   const breadcrumbs: Breadcrumb[] = [];
-  let match;
-  BREADCRUMB_REGEX.lastIndex = 0;
+  if (!content) return breadcrumbs;
 
-  while ((match = BREADCRUMB_REGEX.exec(content)) !== null) {
-    breadcrumbs.push({
-      id: match[1],
-      label: match[2].trim(),
-      index: match.index,
-    });
+  let match;
+  BC_START_REGEX.lastIndex = 0;
+
+  while ((match = BC_START_REGEX.exec(content)) !== null) {
+    const id = match[1];
+    const label = match[2].trim();
+    const startIndex = match.index + match[0].length;
+
+    const endRegex = new RegExp(`<!--\\s*bc:end:${id}\\s*-->`, 'g');
+    endRegex.lastIndex = startIndex;
+    const endMatch = endRegex.exec(content);
+
+    if (endMatch) {
+      const text = content.substring(startIndex, endMatch.index);
+      breadcrumbs.push({
+        id,
+        label,
+        text: text.trim()
+      });
+    }
   }
 
   return breadcrumbs;
 }
 
 /**
- * Generates the storage string for a breadcrumb.
- */
-export function createBreadcrumbMarker(id: string, label: string): string {
-  const safeLabel = label.replace(/-->/g, '--&gt;');
-  return `<!-- breadcrumb:${id}:${safeLabel} -->`;
-}
-
-/**
- * Converts raw content (with breadcrumb markers) to HTML for the editor.
- * Replaces markers with interactive widgets.
+ * Converts raw content (with markers) to HTML for the editor.
+ * Replaces markers with span wrappers.
  */
 export function contentToHtml(content: string): string {
   if (!content) return '';
 
-  // Escape HTML entities in the content first
-  let html = content
+  // 1. Strip old breadcrumbs (migration)
+  let html = content.replace(OLD_BREADCRUMB_REGEX, '');
+
+  // 2. Escape HTML entities
+  html = html
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  const escapedMarkerRegex = /&lt;!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*--&gt;/g;
-
-  return html.replace(escapedMarkerRegex, (match, id, label) => {
-    const decodedLabel = label.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-    return createBreadcrumbHtml(id, decodedLabel);
+  // 3. Replace start markers
+  // The markers are now escaped: &lt;!-- bc:start:id:label --&gt;
+  const startMarkerRegex = /&lt;!--\s*bc:start:([a-zA-Z0-9-]+):([\s\S]*?)\s*--&gt;/g;
+  html = html.replace(startMarkerRegex, (match, id, label) => {
+    const safeLabel = label.replace(/"/g, '&quot;');
+    return `<span class="breadcrumb-highlight bg-accent-dim border-b border-accent box-decoration-clone" data-breadcrumb-id="${id}" data-label="${safeLabel}">`;
   });
-}
 
-/**
- * Creates the HTML string for a breadcrumb widget.
- */
-export function createBreadcrumbHtml(id: string, label: string): string {
-  // New Design:
-  // - Inline-block marker (0 width) behaving as an anchor
-  // - Absolute handle in gutter
-  // - Horizontal line across text on hover
+  // 4. Replace end markers
+  const endMarkerRegex = /&lt;!--\s*bc:end:([a-zA-Z0-9-]+)\s*--&gt;/g;
+  html = html.replace(endMarkerRegex, '</span>');
 
-  const bookmarkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bookmark"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
-
-  return `
-    <div
-      class="breadcrumb-widget group relative select-none w-full h-0 overflow-visible z-10 my-1"
-      contenteditable="false"
-      data-id="${id}"
-      data-label="${label.replace(/"/g, '&quot;')}"
-      draggable="true"
-      title="Drag to move: ${label}"
-    >
-      <div class="breadcrumb-handle absolute top-1/2 -translate-y-1/2 flex items-center justify-center
-             w-6 h-6 rounded-full bg-surface border border-accent/50 text-accent
-             group-hover:bg-accent group-hover:text-white group-hover:border-accent
-             cursor-grab active:cursor-grabbing transition-all z-20 shadow-sm"
-            style="left: -2.5rem;">
-        ${bookmarkIcon}
-      </div>
-
-      <div class="absolute left-0 top-1/2 w-[200vw] h-px bg-accent/0 group-hover:bg-accent/30 transition-colors pointer-events-none z-0"></div>
-
-      <div class="absolute -top-8 left-0 opacity-0 group-hover:opacity-100 transition-opacity
-             bg-card text-main text-xs px-2 py-1 rounded shadow-md border border-border whitespace-nowrap z-50 pointer-events-none"
-            style="left: -1.75rem; transform: translateX(-50%);">
-        ${label}
-      </div>
-    </div>
-  `.replace(/\s+/g, ' ').trim();
+  return html;
 }
 
 /**
  * Converts HTML from the editor back to raw content.
- * Replaces widgets with breadcrumb markers and decodes HTML entities.
+ * Replaces spans with markers and decodes HTML entities.
  */
 export function htmlToContent(html: string): string {
   if (!html) return '';
 
-  // Use DOMParser to handle the structure safely and prevent nested widget garbage
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
 
-  // 1. Replace breadcrumb widgets with markers
-  const widgets = doc.body.querySelectorAll('.breadcrumb-widget');
-  widgets.forEach(widget => {
-      const id = widget.getAttribute('data-id');
-      const label = widget.getAttribute('data-label');
+  // 1. Replace breadcrumb spans with markers
+  const spans = doc.querySelectorAll('span.breadcrumb-highlight, span[data-breadcrumb-id]');
+  spans.forEach(span => {
+    const id = span.getAttribute('data-breadcrumb-id');
+    const label = span.getAttribute('data-label') || 'Breadcrumb';
 
-      if (id && label) {
-          // Create the marker as a Comment Node to ensure innerHTML output is a raw comment
-          // We replicate the formatting logic from createBreadcrumbMarker but without the wrapper tags
-          // createBreadcrumbMarker uses: `<!-- breadcrumb:${id}:${safeLabel} -->`
-          const safeLabel = label.replace(/-->/g, '--&gt;');
-          const commentContent = ` breadcrumb:${id}:${safeLabel} `;
-          widget.replaceWith(doc.createComment(commentContent));
-      } else {
-          // Clean up malformed widgets
-          widget.remove();
+    if (id) {
+      const safeLabel = label.replace(/-->/g, '--&gt;');
+      const startComment = ` bc:start:${id}:${safeLabel} `;
+      const endComment = ` bc:end:${id} `;
+
+      const startNode = doc.createComment(startComment);
+      const endNode = doc.createComment(endComment);
+
+      span.parentNode?.insertBefore(startNode, span);
+      span.parentNode?.insertBefore(endNode, span.nextSibling);
+
+      // Unwrap the span
+      while (span.firstChild) {
+        span.parentNode?.insertBefore(span.firstChild, endNode);
       }
+      span.remove();
+    }
   });
+
+  // Remove widgets if any
+  doc.querySelectorAll('.breadcrumb-widget').forEach(w => w.remove());
 
   let content = doc.body.innerHTML;
 
-  // 2. Clean up block-level elements that browsers insert for newlines
+  // 2. Clean up block elements
   content = content
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/div><div>/gi, '\n')
@@ -152,21 +138,25 @@ export function htmlToContent(html: string): string {
  * Strips breadcrumb markers from content (for export/preview).
  */
 export function stripBreadcrumbs(content: string): string {
-  return content.replace(BREADCRUMB_REGEX, '');
+  if (!content) return '';
+  let clean = content.replace(OLD_BREADCRUMB_REGEX, '');
+  clean = clean.replace(BC_START_REGEX, '').replace(BC_END_REGEX, '');
+  return clean;
 }
 
 /**
- * Removes a specific breadcrumb by ID.
+ * Removes a specific breadcrumb by ID (unwraps text).
  */
 export function removeBreadcrumb(content: string, id: string): string {
-  const regex = new RegExp(`<!--\\s*breadcrumb:${id}:[\\s\\S]*?\\s*-->`, 'g');
-  return content.replace(regex, '');
+  const startRegex = new RegExp(`<!--\\s*bc:start:${id}:[\\s\\S]*?\\s*-->`, 'g');
+  const endRegex = new RegExp(`<!--\\s*bc:end:${id}\\s*-->`, 'g');
+  return content.replace(startRegex, '').replace(endRegex, '');
 }
 
 /**
  * Updates a breadcrumb's label.
  */
 export function updateBreadcrumbLabel(content: string, id: string, newLabel: string): string {
-  const regex = new RegExp(`<!--\\s*breadcrumb:${id}:([\\s\\S]*?)\\s*-->`, 'g');
-  return content.replace(regex, createBreadcrumbMarker(id, newLabel));
+  const startRegex = new RegExp(`(<!--\\s*bc:start:${id}:)([\\s\\S]*?)(\\s*-->)`, 'g');
+  return content.replace(startRegex, `$1${newLabel}$3`);
 }

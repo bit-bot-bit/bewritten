@@ -1,5 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { contentToHtml, htmlToContent, updateBreadcrumbLabel, createBreadcrumbMarker } from '../utils/breadcrumbs';
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { contentToHtml, htmlToContent, updateBreadcrumbLabel } from '../utils/breadcrumbs';
+import { wrapSelectionWithBreadcrumb } from '../utils/editorDom';
+import { generateId } from '../utils/id';
+import { FloatingToolbar } from './FloatingToolbar';
 
 interface ContentEditableEditorProps {
   content: string;
@@ -10,26 +13,33 @@ interface ContentEditableEditorProps {
   readOnly?: boolean;
 }
 
-export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
+export interface EditorRef {
+  addBreadcrumbFromSelection: () => void;
+  focus: () => void;
+}
+
+export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditorProps>(({
   content,
   onChange,
   onKeyDown,
   placeholder,
   className,
   readOnly = false,
-}) => {
+}, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const lastHtmlRef = useRef<string>(contentToHtml(content));
   const isComposingRef = useRef(false);
+  const [toolbarPosition, setToolbarPosition] = useState<{ x: number, y: number } | null>(null);
 
   // Initialize content
   useEffect(() => {
     if (editorRef.current) {
       const nextHtml = contentToHtml(content);
 
-      const currentHtml = editorRef.current.innerHTML;
-
-      // Update only if significantly different
+      // Only update if significantly different to avoid cursor jumps
+      // Note: This is tricky with contenteditable.
+      // Ideally we only update if external change.
+      // But here we rely on lastHtmlRef to track local changes.
       if (nextHtml !== lastHtmlRef.current) {
          editorRef.current.innerHTML = nextHtml;
          lastHtmlRef.current = nextHtml;
@@ -39,30 +49,116 @@ export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
     }
   }, [content]);
 
-  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+  const handleInput = useCallback(() => {
     if (editorRef.current && !isComposingRef.current) {
       const html = editorRef.current.innerHTML;
       const text = htmlToContent(html);
       lastHtmlRef.current = contentToHtml(text); // Update our reference
       onChange(text);
+      updateToolbarPosition(); // Check selection after input
     }
-  };
+  }, [onChange]);
+
+  const addBreadcrumbFromSelection = useCallback(() => {
+    if (!editorRef.current) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+
+    // Verify selection is within editor
+    if (!editorRef.current.contains(selection.anchorNode)) return;
+
+    const id = generateId();
+    // Use selected text as label, truncated
+    const text = selection.toString().trim();
+    if (!text) return;
+
+    const label = text.length > 50 ? text.substring(0, 50) + '...' : text;
+
+    if (wrapSelectionWithBreadcrumb(id, label)) {
+        // Trigger update
+        handleInput();
+        setToolbarPosition(null);
+    }
+  }, [handleInput]);
+
+  useImperativeHandle(ref, () => ({
+    addBreadcrumbFromSelection,
+    focus: () => editorRef.current?.focus()
+  }));
+
+  const updateToolbarPosition = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      setToolbarPosition(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    // Check if selection is inside editor
+    if (!editorRef.current?.contains(range.commonAncestorContainer)) {
+        setToolbarPosition(null);
+        return;
+    }
+
+    // Check if selection intersects any breadcrumb highlight
+    if (editorRef.current) {
+      const highlights = editorRef.current.querySelectorAll('.breadcrumb-highlight');
+      let intersects = false;
+      for (let i = 0; i < highlights.length; i++) {
+        if (range.intersectsNode(highlights[i])) {
+          intersects = true;
+          break;
+        }
+      }
+      if (intersects) {
+        setToolbarPosition(null);
+        return;
+      }
+    }
+
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+       // Position above selection
+       // Account for scroll? getBoundingClientRect is relative to viewport.
+       // Our FloatingToolbar uses fixed positioning, so this is correct.
+       setToolbarPosition({
+         x: rect.left + rect.width / 2,
+         y: rect.top
+       });
+    } else {
+       setToolbarPosition(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+        // Debounce or just run? Selection change fires rapidly.
+        // We need it to be responsive.
+        requestAnimationFrame(updateToolbarPosition);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    // Also handle scroll to update position
+    window.addEventListener('scroll', handleSelectionChange, true);
+    window.addEventListener('resize', handleSelectionChange);
+
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      window.removeEventListener('scroll', handleSelectionChange, true);
+      window.removeEventListener('resize', handleSelectionChange);
+    };
+  }, [updateToolbarPosition]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
     const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
 
-    // Check if the pasted HTML contains our breadcrumb widgets
-    if (html && html.includes('breadcrumb-widget')) {
-       // 1. Convert pasted HTML to our internal content format (text + markers).
-       //    This sanitizes unwanted formatting because htmlToContent strips regular tags.
+    // Check if pasted HTML contains breadcrumb highlights
+    if (html && (html.includes('breadcrumb-highlight') || html.includes('breadcrumb-widget'))) {
+       // Sanitize via htmlToContent -> contentToHtml cycle
        const contentWithMarkers = htmlToContent(html);
-
-       // 2. Convert back to editor HTML (widgets)
        const cleanHtml = contentToHtml(contentWithMarkers);
-
-       // 3. Insert the clean HTML with widgets
        document.execCommand('insertHTML', false, cleanHtml);
     } else {
        // Standard text paste
@@ -72,122 +168,34 @@ export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
 
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (onKeyDown) onKeyDown(e);
-  };
-
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Check if clicked on breadcrumb handle
-    const target = e.target as HTMLElement;
-    const handle = target.closest('.breadcrumb-handle');
-    const widget = target.closest('.breadcrumb-widget') as HTMLElement;
-
-    if (handle && widget) {
-      e.stopPropagation(); // Prevent caret movement/selection clearing if possible
-      const currentId = widget.dataset.id;
-      const currentLabel = widget.dataset.label;
-
-      // Simple prompt for renaming
-      const newLabel = window.prompt('Rename breadcrumb:', currentLabel);
-      if (newLabel !== null && newLabel !== currentLabel) {
-        // We update via the parent's onChange handler to ensure state consistency.
-        if (editorRef.current) {
-            const currentContent = htmlToContent(editorRef.current.innerHTML);
-            const updatedContent = updateBreadcrumbLabel(currentContent, currentId!, newLabel);
-            onChange(updatedContent);
-        }
-      }
-    }
-  };
-
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const widget = target.closest('.breadcrumb-widget');
-    if (widget) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', ''); // Required for some browsers
-      e.dataTransfer.setData('application/x-breadcrumb-id', widget.getAttribute('data-id') || '');
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    if (e.dataTransfer.types.includes('application/x-breadcrumb-id')) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    const id = e.dataTransfer.getData('application/x-breadcrumb-id');
-    if (id && editorRef.current) {
-      e.preventDefault();
-
-      // Sanitize ID for selector usage
-      const safeId = id.replace(/["\\]/g, '\\$&');
-      const oldWidget = editorRef.current.querySelector(`.breadcrumb-widget[data-id="${safeId}"]`);
-      if (oldWidget) {
-        // Determine drop position
-        let range: Range | null = null;
-        if (document.caretRangeFromPoint) {
-          range = document.caretRangeFromPoint(e.clientX, e.clientY);
-        } else if ((document as any).caretPositionFromPoint) {
-          // Firefox fallback
-          const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
-          range = document.createRange();
-          range.setStart(pos.offsetNode, pos.offset);
-          range.collapse(true);
-        }
-
-        if (range) {
-          // Enforce block-level placement (snap to nearest block start)
-          // preventing insertion mid-sentence
-          let targetNode = range.startContainer;
-          // Traverse up to find a block container if we are in a text node
-          if (targetNode.nodeType === Node.TEXT_NODE && targetNode.parentElement) {
-             // Basic block elements in contenteditable
-             const block = targetNode.parentElement.closest('p, div, h1, h2, h3, h4, h5, h6, li');
-             // Ensure we are still inside the editor
-             if (block && editorRef.current && editorRef.current.contains(block)) {
-                 range.setStartBefore(block);
-                 range.collapse(true);
-             }
-          }
-
-          // Clone and insert at new position
-          const newWidget = oldWidget.cloneNode(true);
-          range.insertNode(newWidget);
-          range.collapse(false);
-
-          // Remove old widget
-          oldWidget.remove();
-
-          // Trigger update
-          handleInput(null as any);
-        }
-      }
-    }
+    // Hide toolbar on typing
+    setToolbarPosition(null);
   };
 
   return (
-    <div
-      ref={editorRef}
-      className={`outline-none min-h-[50vh] ${className}`}
-      contentEditable={!readOnly}
-      suppressContentEditableWarning
-      onInput={handleInput}
-      onPaste={handlePaste}
-      onKeyDown={handleKeyDownWrapper}
-      onCompositionStart={() => (isComposingRef.current = true)}
-      onCompositionEnd={() => {
-        isComposingRef.current = false;
-        handleInput(null as any);
-      }}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onClick={handleClick}
-      role="textbox"
-      aria-multiline="true"
-      aria-placeholder={placeholder}
-      style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }} // Mimic textarea
-    />
+    <>
+      <div
+        ref={editorRef}
+        className={`outline-none min-h-[50vh] ${className}`}
+        contentEditable={!readOnly}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDownWrapper}
+        onCompositionStart={() => (isComposingRef.current = true)}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+          handleInput();
+        }}
+        onClick={() => updateToolbarPosition()} // Ensure update on click
+        role="textbox"
+        aria-multiline="true"
+        aria-placeholder={placeholder}
+        style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
+      />
+      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} />
+    </>
   );
-};
+});
+
+ContentEditableEditor.displayName = 'ContentEditableEditor';
