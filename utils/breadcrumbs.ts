@@ -65,36 +65,39 @@ export function contentToHtml(content: string): string {
  * Creates the HTML string for a breadcrumb widget.
  */
 export function createBreadcrumbHtml(id: string, label: string): string {
-  // Use Tailwind classes for styling.
-  // The outer div is contenteditable="false" so it's treated as a single block.
-  // draggable="true" allows it to be moved.
   // New Design:
-  // - Full-width line with text in the middle
-  // - Accent color on hover
-  // - Bookmark icon
-  // - Uppercase, tracking-widest text
+  // - Inline-block marker (0 width) behaving as an anchor
+  // - Absolute handle in gutter
+  // - Horizontal line across text on hover
 
-  // Lucide Bookmark Icon SVG
   const bookmarkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bookmark"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
 
   return `
-    <div
-      class="breadcrumb-widget flex items-center gap-4 py-6 my-2 select-none group relative cursor-grab active:cursor-grabbing w-full"
+    <span
+      class="breadcrumb-widget group relative inline-block select-none align-middle w-0 h-4 mx-1 overflow-visible z-10"
       contenteditable="false"
       data-id="${id}"
       data-label="${label.replace(/"/g, '&quot;')}"
       draggable="true"
-      title="Drag to move, click label to rename"
+      title="Drag to move: ${label}"
+      style="vertical-align: text-bottom;"
     >
-      <div class="flex-1 h-px bg-border group-hover:bg-accent transition-colors duration-300"></div>
+      <span class="breadcrumb-handle absolute top-1/2 -translate-y-1/2 flex items-center justify-center
+             w-6 h-6 rounded-full bg-surface border border-border text-muted
+             group-hover:text-accent group-hover:border-accent group-hover:bg-accent/10
+             cursor-grab active:cursor-grabbing transition-all z-20 shadow-sm"
+            style="left: -3.5rem;">
+        ${bookmarkIcon}
+      </span>
 
-      <div class="breadcrumb-handle flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted group-hover:text-accent transition-colors duration-300 select-none whitespace-nowrap">
-        <span class="opacity-50 group-hover:opacity-100 transition-opacity">${bookmarkIcon}</span>
-        <span class="breadcrumb-text">${label}</span>
-      </div>
+      <span class="absolute left-0 top-1/2 w-[200vw] h-px bg-accent/0 group-hover:bg-accent/30 transition-colors pointer-events-none z-0"></span>
 
-      <div class="flex-1 h-px bg-border group-hover:bg-accent transition-colors duration-300"></div>
-    </div>
+      <span class="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity
+             bg-card text-main text-xs px-2 py-1 rounded shadow-md border border-border whitespace-nowrap z-30 pointer-events-none"
+            style="left: -4rem; transform: translateX(-100%);">
+        ${label}
+      </span>
+    </span>
   `.replace(/\s+/g, ' ').trim();
 }
 
