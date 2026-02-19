@@ -538,6 +538,7 @@ const App = () => {
                   plotConsensusCache: typeof updater === 'function' ? updater(s.plotConsensusCache) : updater,
                 }))
               }
+              isMobile={isMobile}
             />
           )
         )}
