@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { checkContinuity } from '../services/geminiService';
 import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExportModal } from './ExportModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { generateId } from '../utils/id';
 import { formatTitleCase } from '../utils/titleCase';
-import { ContentEditableEditor } from './ContentEditableEditor';
+import { ContentEditableEditor, EditorRef } from './ContentEditableEditor';
 import { stripBreadcrumbs, parseBreadcrumbs, removeBreadcrumb } from '../utils/breadcrumbs';
-import { insertBreadcrumbAtCursor, scrollToElement, focusEditorEnd } from '../utils/editorDom';
+import { scrollToElement, focusEditorEnd } from '../utils/editorDom';
 
 const BOOK_FORMATS = [
   { id: 'standard', name: 'Standard (6" x 9")', width: '6in', heightPx: 864, pageCss: '@page { size: 6in 9in; margin: 1in; }' },
@@ -135,6 +135,8 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   const [selectedFormat, setSelectedFormat] = useState(BOOK_FORMATS[0]);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
 
+  const editorRef = useRef<EditorRef>(null);
+
   const currentChapter = storyState.chapters.find((c) => c.id === storyState.currentChapterId) || storyState.chapters[0];
   const previewLayout = PREVIEW_LAYOUT_BY_FORMAT[selectedFormat.id] ?? { marginPx: 96, marginCss: '1in' };
   const previewTypography = PREVIEW_TYPOGRAPHY_BY_FORMAT[selectedFormat.id] || PREVIEW_TYPOGRAPHY_BY_FORMAT.standard;
@@ -190,9 +192,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   };
 
   const handleKeyDown = (e) => {
-    // Basic shortcuts if needed, mostly handled by browser contenteditable now.
-    // We can implement special handling here if required.
-    // For now, allow default behavior.
+    // Basic shortcuts if needed
   };
 
   const addChapter = () => {
@@ -222,48 +222,14 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   };
 
   const handleAddBreadcrumb = (e, chapterId) => {
+    e.preventDefault();
     e.stopPropagation();
 
-    // If we are adding to the current chapter, try to use cursor position
     if (chapterId === currentChapter.id) {
-       // Insert at cursor
-       const id = generateId();
-       const label = `Scene ${parseBreadcrumbs(currentChapter.content).length + 1}`;
-       const success = insertBreadcrumbAtCursor(id, label);
-
-       if (!success) {
-         // Fallback: Append to end
-         // We can't easily append via DOM if we don't have focus.
-         // But we can append to the content string.
-         const newContent = currentChapter.content + (currentChapter.content ? '\n' : '') + `<!-- breadcrumb:${id}:${label} -->\n`;
-         updateContent(newContent);
-
-         // Try to focus editor
-         setTimeout(() => {
-           const editor = document.querySelector('.breadcrumb-editor');
-           if (editor) focusEditorEnd(editor);
-         }, 50);
-       }
+       editorRef.current?.addBreadcrumbFromSelection();
     } else {
-       // Switch to that chapter first? Or just append?
-       // Usually better to switch.
+       // Just switch chapter, can't add breadcrumb remotely easily without selection
        setStoryState((s) => ({ ...s, currentChapterId: chapterId }));
-       // Then append (since we just switched, we likely don't have a specific cursor pos)
-       // We'll let the effect handle it or user needs to click again?
-       // Let's just append for now.
-       // We can't update content of non-current chapter easily without finding it.
-       const targetChapter = storyState.chapters.find(c => c.id === chapterId);
-       if (targetChapter) {
-         const id = generateId();
-         const label = `Scene ${parseBreadcrumbs(targetChapter.content).length + 1}`;
-         const newContent = targetChapter.content + (targetChapter.content ? '\n' : '') + `<!-- breadcrumb:${id}:${label} -->\n`;
-
-         setStoryState((prev) => ({
-            ...prev,
-            chapters: prev.chapters.map((c) => (c.id === chapterId ? { ...c, content: newContent } : c)),
-            currentChapterId: chapterId // Also switch to it
-          }));
-       }
     }
   };
 
@@ -341,9 +307,10 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
 
                   <div className="flex items-center gap-1">
                     <button
+                      onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
                       onClick={(e) => handleAddBreadcrumb(e, chapter.id)}
-                      className="opacity-0 group-hover:opacity-100 text-muted hover:text-accent p-1 transition-opacity"
-                      title="Add Breadcrumb"
+                      className={`opacity-0 group-hover:opacity-100 text-muted hover:text-accent p-1 transition-opacity ${chapter.id !== currentChapter.id ? 'hidden' : ''}`}
+                      title="Add Breadcrumb (Select text first)"
                     >
                       <Disc size={14} />
                     </button>
@@ -420,6 +387,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
         {viewMode === 'edit' ? (
           <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col">
             <ContentEditableEditor
+              ref={editorRef}
               key={currentChapter.id}
               content={currentChapter.content}
               onChange={updateContent}

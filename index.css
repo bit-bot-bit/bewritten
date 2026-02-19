@@ -1,0 +1,6 @@
+/* Global styles if needed. Tailwind is loaded via CDN in index.html. */
+
+.box-decoration-clone {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}

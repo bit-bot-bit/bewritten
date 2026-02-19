@@ -1,24 +1,34 @@
-
 /**
  * DOM utility functions for the ContentEditable editor.
  */
 
-import { createBreadcrumbHtml } from './breadcrumbs';
-
 /**
- * Inserts a breadcrumb widget at the current cursor position.
+ * Wraps the current selection with a breadcrumb span.
  * Returns true if successful.
  */
-export function insertBreadcrumbAtCursor(id: string, label: string): boolean {
+export function wrapSelectionWithBreadcrumb(id: string, label: string): boolean {
   if (typeof window === 'undefined') return false;
 
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return false;
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
 
-  const widgetHtml = createBreadcrumbHtml(id, label);
+  const range = selection.getRangeAt(0);
 
-  // Use execCommand to insert HTML, which preserves undo stack and fires input event
-  return document.execCommand('insertHTML', false, widgetHtml);
+  const span = document.createElement('span');
+  span.className = 'breadcrumb-highlight bg-accent-dim border-b border-accent box-decoration-clone';
+  span.dataset.breadcrumbId = id;
+  span.dataset.label = label;
+
+  try {
+    range.surroundContents(span);
+    return true;
+  } catch (e) {
+    // Fallback for complex selections (e.g. crossing block boundaries)
+    // We can use extractContents, but that might break block structure if not careful.
+    // Ideally we shouldn't allow crossing blocks for inline spans.
+    console.warn("Could not wrap selection:", e);
+    return false;
+  }
 }
 
 /**
@@ -31,12 +41,7 @@ export function wrapSelectionWith(prefix: string, suffix: string = prefix) {
   const range = selection.getRangeAt(0);
   const text = range.toString();
 
-  // If we want to toggle, we'd need to check if it's already wrapped.
-  // For simplicity, just wrap.
   const newText = `${prefix}${text}${suffix}`;
-
-  // We can use execCommand 'insertText' to preserve undo history if possible
-  // but standard execCommand only inserts plain text.
   document.execCommand('insertText', false, newText);
 }
 
@@ -65,10 +70,9 @@ export function focusEditorEnd(element: HTMLElement) {
  */
 export function scrollToElement(container: HTMLElement | null, elementId: string) {
   if (!container) return;
-  const element = container.querySelector(`[data-id="${elementId}"]`);
+  const element = container.querySelector(`[data-breadcrumb-id="${elementId}"]`) || container.querySelector(`[data-id="${elementId}"]`);
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Optionally highlight it
     element.classList.add('highlight-pulse');
     setTimeout(() => element.classList.remove('highlight-pulse'), 2000);
   }
