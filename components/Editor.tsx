@@ -418,7 +418,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
         </div>
 
         {viewMode === 'edit' ? (
-          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col">
+          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col pl-16 md:pl-24">
             <ContentEditableEditor
               key={currentChapter.id}
               content={currentChapter.content}
