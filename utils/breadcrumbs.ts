@@ -11,7 +11,7 @@ export interface Breadcrumb {
   index: number; // Character index in the raw text content
 }
 
-const BREADCRUMB_REGEX = /<!--\s*breadcrumb:(\w+):([\s\S]*?)\s*-->/g;
+const BREADCRUMB_REGEX = /<!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
 
 /**
  * Parses content to find all breadcrumbs.
@@ -53,7 +53,7 @@ export function contentToHtml(content: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  const escapedMarkerRegex = /&lt;!--\s*breadcrumb:(\w+):([\s\S]*?)\s*--&gt;/g;
+  const escapedMarkerRegex = /&lt;!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*--&gt;/g;
 
   return html.replace(escapedMarkerRegex, (match, id, label) => {
     const decodedLabel = label.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
