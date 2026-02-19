@@ -301,8 +301,12 @@ const App = () => {
     setSaveMessage('Unsaved changes');
   };
 
-  const handleAddStory = async () => {
-    const story = createFreshStory(stories.length + 1);
+  const handleAddStory = async (inputStory = null) => {
+    // If inputStory is provided, use it; otherwise create fresh
+    // Note: inputStory might be a synthetic event if called from button onClick without args, so check type
+    const isStoryObject = inputStory && typeof inputStory === 'object' && inputStory.title;
+    const story = isStoryObject ? inputStory : createFreshStory(stories.length + 1);
+
     const created = await createStoryForUser(story);
     setStories((prev) => [...prev, created]);
     setActiveStoryId(created.id);

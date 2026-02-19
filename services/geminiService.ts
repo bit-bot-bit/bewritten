@@ -71,3 +71,11 @@ export async function generateStoryReview(story, genre = '') {
     riskScore: 0,
   };
 }
+
+export async function importStoryFromText(text) {
+  const data = await apiPost('/ai/import-story', { text });
+  return data.story || {
+    title: 'Imported Story',
+    chapters: [{ title: 'Chapter 1', content: text, order: 1 }],
+  };
+}

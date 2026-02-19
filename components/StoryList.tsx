@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Book, Trash2, ChevronRight, Info, Sparkles, X, Loader2 } from 'lucide-react';
+import { Plus, Book, Trash2, ChevronRight, Info, Sparkles, X, Loader2, Upload } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
-import { generateStoryInsights, generateStoryReview } from '../services/geminiService';
+import { generateStoryInsights, generateStoryReview, importStoryFromText } from '../services/geminiService';
 import { saveStoryForUser } from '../services/storyService';
 import { generateId } from '../utils/id';
 
@@ -18,6 +18,60 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const [reviewError, setReviewError] = useState('');
   const [notesDraft, setNotesDraft] = useState('');
   const [versionName, setVersionName] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
+  const handleFileImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      setImportError('File is too large (max 5MB).');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError('');
+
+    try {
+      const text = await file.text();
+      const imported = await importStoryFromText(text);
+
+      const newStory = {
+        id: generateId(),
+        title: imported.title || 'Imported Story',
+        chapters: (imported.chapters || []).map((ch, idx) => ({
+          id: generateId(),
+          title: ch.title || `Chapter ${idx + 1}`,
+          content: ch.content || '',
+          order: idx + 1,
+        })),
+        currentChapterId: '',
+        characters: [],
+        locations: [],
+        plotPoints: [],
+        plotConsensusCache: { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
+        aiInsights: { synopsis: '', backCover: '', detailedNotes: '' },
+        storyNotes: '',
+        preservedVersions: [],
+        genre: '',
+        aiReviews: [],
+      };
+
+      if (newStory.chapters.length > 0) {
+          newStory.currentChapterId = newStory.chapters[0].id;
+      }
+
+      onAddStory(newStory);
+    } catch (err) {
+      setImportError('Failed to import story. Please try again.');
+      console.error(err);
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  };
 
   const handleDeleteClick = (e, id) => {
     e.stopPropagation();
@@ -491,10 +545,17 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
           </div>
         ))}
 
-        <button onClick={onAddStory} className="rounded-2xl border-2 border-dashed border-border hover:border-muted hover:bg-card/30 flex flex-col items-center justify-center gap-4 h-64 text-muted hover:text-accent transition-all">
+        <button onClick={() => onAddStory(null)} className="rounded-2xl border-2 border-dashed border-border hover:border-muted hover:bg-card/30 flex flex-col items-center justify-center gap-4 h-64 text-muted hover:text-accent transition-all">
           <Plus size={48} className="opacity-50" />
           <span className="font-medium">Start a new journey</span>
         </button>
+
+        <label className={`rounded-2xl border-2 border-dashed border-border hover:border-muted hover:bg-card/30 flex flex-col items-center justify-center gap-4 h-64 text-muted hover:text-accent transition-all cursor-pointer ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+          <input type="file" accept=".txt,.md" className="hidden" onChange={handleFileImport} disabled={isImporting} />
+          {isImporting ? <Loader2 size={48} className="animate-spin opacity-50" /> : <Upload size={48} className="opacity-50" />}
+          <span className="font-medium">{isImporting ? 'Importing...' : 'Import from file'}</span>
+          {importError && <span className="text-xs text-red-400 px-4 text-center">{importError}</span>}
+        </label>
       </div>
     </div>
   );

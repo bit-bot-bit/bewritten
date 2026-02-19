@@ -511,4 +511,32 @@ router.post('/story-review', (req, res) =>
   })
 );
 
+router.post('/import-story', (req, res) =>
+  handleAi(req, res, 'import-story', async () => {
+    const text = String(req.body?.text || '').slice(0, 800000); // Allow up to ~800k chars (approx 150-200k tokens)
+    if (!text) throw new Error('No text provided for import.');
+
+    const prompt = [
+      'You are an expert literary editor.',
+      'Analyze the provided text and structure it into a coherent story.',
+      '1. Identify the Story Title.',
+      '2. Break the text into logical chapters.',
+      '3. Assign a title to each chapter.',
+      '4. Preserve the original text content within the chapters.',
+      '5. Return a JSON object with "title" and a "chapters" array (title, content, order).',
+      '',
+      '--- TEXT CONTENT ---',
+      text,
+    ].join('\n');
+
+    const story = await runJsonPrompt({
+      prompt,
+      schema: Schema.storyImport,
+      fallback: { title: 'Imported Story', chapters: [{ title: 'Chapter 1', content: text.slice(0, 5000), order: 1 }] },
+      actorEmail: req.auth.email,
+    });
+    return { story };
+  })
+);
+
 export default router;
