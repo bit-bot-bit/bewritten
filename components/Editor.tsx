@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { checkContinuity } from '../services/geminiService';
-import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye } from 'lucide-react';
+import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExportModal } from './ExportModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { generateId } from '../utils/id';
 import { formatTitleCase } from '../utils/titleCase';
+import { ContentEditableEditor } from './ContentEditableEditor';
+import { stripBreadcrumbs, parseBreadcrumbs, removeBreadcrumb } from '../utils/breadcrumbs';
+import { insertBreadcrumbAtCursor, scrollToElement, focusEditorEnd } from '../utils/editorDom';
 
 const BOOK_FORMATS = [
   { id: 'standard', name: 'Standard (6" x 9")', width: '6in', heightPx: 864, pageCss: '@page { size: 6in 9in; margin: 1in; }' },
@@ -91,6 +94,9 @@ function wrapParagraphByWidth(paragraph, maxWidthPx, ctx, fontPx) {
 }
 
 function paginateContent(content, format, typography) {
+  // Strip breadcrumbs before paginating so they don't affect layout or show up
+  const cleanContent = stripBreadcrumbs(content);
+
   const marginPx = PREVIEW_LAYOUT_BY_FORMAT[format.id]?.marginPx ?? 96;
   const pageWidthPx = widthToPx(format.width);
   const contentWidthPx = Math.max(80, pageWidthPx - marginPx * 2);
@@ -100,7 +106,7 @@ function paginateContent(content, format, typography) {
   const firstPageHeadingLines = typography.firstPageHeadingLines;
   const ctx = getMeasureContext(typography.fontPx);
 
-  const paragraphs = content.split('\n');
+  const paragraphs = cleanContent.split('\n');
   const lines = [];
   for (const paragraph of paragraphs) lines.push(...wrapParagraphByWidth(paragraph, contentWidthPx, ctx, typography.fontPx));
 
@@ -127,6 +133,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   const [chapterToDelete, setChapterToDelete] = useState(null);
   const [viewMode, setViewMode] = useState('edit');
   const [selectedFormat, setSelectedFormat] = useState(BOOK_FORMATS[0]);
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
 
   const currentChapter = storyState.chapters.find((c) => c.id === storyState.currentChapterId) || storyState.chapters[0];
   const previewLayout = PREVIEW_LAYOUT_BY_FORMAT[selectedFormat.id] ?? { marginPx: 96, marginCss: '1in' };
@@ -182,55 +189,10 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
     if (next && next !== currentChapter.title) updateChapterTitle(next);
   };
 
-  const handleEditorKeyDown = (e) => {
-    const textarea = e.currentTarget;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = currentChapter.content;
-
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'i') {
-      e.preventDefault();
-      const selected = value.slice(start, end);
-      const isWrapped = selected.length >= 2 && selected.startsWith('*') && selected.endsWith('*');
-
-      let nextValue = value;
-      let nextStart = start;
-      let nextEnd = end;
-
-      if (start !== end) {
-        if (isWrapped) {
-          const unwrapped = selected.slice(1, -1);
-          nextValue = `${value.slice(0, start)}${unwrapped}${value.slice(end)}`;
-          nextStart = start;
-          nextEnd = start + unwrapped.length;
-        } else {
-          nextValue = `${value.slice(0, start)}*${selected}*${value.slice(end)}`;
-          nextStart = start + 1;
-          nextEnd = end + 1;
-        }
-      } else {
-        nextValue = `${value.slice(0, start)}**${value.slice(end)}`;
-        nextStart = start + 1;
-        nextEnd = start + 1;
-      }
-
-      updateContent(nextValue);
-      requestAnimationFrame(() => {
-        textarea.selectionStart = nextStart;
-        textarea.selectionEnd = nextEnd;
-      });
-      return;
-    }
-
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const nextValue = `${value.slice(0, start)}\t${value.slice(end)}`;
-      updateContent(nextValue);
-
-      requestAnimationFrame(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + 1;
-      });
-    }
+  const handleKeyDown = (e) => {
+    // Basic shortcuts if needed, mostly handled by browser contenteditable now.
+    // We can implement special handling here if required.
+    // For now, allow default behavior.
   };
 
   const addChapter = () => {
@@ -247,10 +209,86 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
 
   const handleAnalysis = async () => {
     setIsAnalyzing(true);
-    const fullText = storyState.chapters.map((c) => `[${c.title}]\n${c.content}`).join('\n\n');
+    // Strip breadcrumbs for analysis
+    const fullText = storyState.chapters.map((c) => `[${c.title}]\n${stripBreadcrumbs(c.content)}`).join('\n\n');
     const results = await checkContinuity(fullText, storyState.characters, storyState.locations, storyState.plotPoints);
     setAnalysis(results);
     setIsAnalyzing(false);
+  };
+
+  const toggleChapterExpand = (e, chapterId) => {
+    e.stopPropagation();
+    setExpandedChapters(prev => ({ ...prev, [chapterId]: !prev[chapterId] }));
+  };
+
+  const handleAddBreadcrumb = (e, chapterId) => {
+    e.stopPropagation();
+
+    // If we are adding to the current chapter, try to use cursor position
+    if (chapterId === currentChapter.id) {
+       // Insert at cursor
+       const id = generateId();
+       const label = `Scene ${parseBreadcrumbs(currentChapter.content).length + 1}`;
+       const success = insertBreadcrumbAtCursor(id, label);
+
+       if (!success) {
+         // Fallback: Append to end
+         // We can't easily append via DOM if we don't have focus.
+         // But we can append to the content string.
+         const newContent = currentChapter.content + (currentChapter.content ? '\n' : '') + `<!-- breadcrumb:${id}:${label} -->\n`;
+         updateContent(newContent);
+
+         // Try to focus editor
+         setTimeout(() => {
+           const editor = document.querySelector('.breadcrumb-editor');
+           if (editor) focusEditorEnd(editor);
+         }, 50);
+       }
+    } else {
+       // Switch to that chapter first? Or just append?
+       // Usually better to switch.
+       setStoryState((s) => ({ ...s, currentChapterId: chapterId }));
+       // Then append (since we just switched, we likely don't have a specific cursor pos)
+       // We'll let the effect handle it or user needs to click again?
+       // Let's just append for now.
+       // We can't update content of non-current chapter easily without finding it.
+       const targetChapter = storyState.chapters.find(c => c.id === chapterId);
+       if (targetChapter) {
+         const id = generateId();
+         const label = `Scene ${parseBreadcrumbs(targetChapter.content).length + 1}`;
+         const newContent = targetChapter.content + (targetChapter.content ? '\n' : '') + `<!-- breadcrumb:${id}:${label} -->\n`;
+
+         setStoryState((prev) => ({
+            ...prev,
+            chapters: prev.chapters.map((c) => (c.id === chapterId ? { ...c, content: newContent } : c)),
+            currentChapterId: chapterId // Also switch to it
+          }));
+       }
+    }
+  };
+
+  const handleDeleteBreadcrumb = (e, chapterId, breadcrumbId) => {
+    e.stopPropagation();
+    const targetChapter = storyState.chapters.find(c => c.id === chapterId);
+    if (!targetChapter) return;
+
+    const newContent = removeBreadcrumb(targetChapter.content, breadcrumbId);
+
+    setStoryState((prev) => ({
+      ...prev,
+      chapters: prev.chapters.map((c) => (c.id === chapterId ? { ...c, content: newContent } : c)),
+    }));
+  };
+
+  const handleScrollToBreadcrumb = (e, chapterId, breadcrumbId) => {
+    e.stopPropagation();
+    if (currentChapter.id !== chapterId) {
+      setStoryState((s) => ({ ...s, currentChapterId: chapterId }));
+      // Need to wait for render
+      setTimeout(() => scrollToElement(document.querySelector('.breadcrumb-editor'), breadcrumbId), 100);
+    } else {
+      scrollToElement(document.querySelector('.breadcrumb-editor'), breadcrumbId);
+    }
   };
 
   return (
@@ -280,18 +318,62 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
           <button onClick={addChapter} className="text-muted hover:text-main"><Plus size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {storyState.chapters.map((chapter) => (
-            <div
-              key={chapter.id}
-              onClick={() => setStoryState((s) => ({ ...s, currentChapterId: chapter.id }))}
-              className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm transition-colors ${storyState.currentChapterId === chapter.id ? 'bg-accent-dim text-accent border border-accent/30' : 'text-muted hover:bg-card'}`}
-            >
-              <div className="flex items-center gap-2 truncate"><FileText size={14} /><span className="truncate">{chapter.title}</span></div>
-              {storyState.chapters.length > 1 && (
-                <button onClick={(e) => { e.stopPropagation(); setChapterToDelete(chapter.id); }} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 p-1"><Trash2 size={14} /></button>
-              )}
-            </div>
-          ))}
+          {storyState.chapters.map((chapter) => {
+            const breadcrumbs = parseBreadcrumbs(chapter.content);
+            const isExpanded = expandedChapters[chapter.id];
+
+            return (
+              <div key={chapter.id} className="flex flex-col">
+                <div
+                  onClick={() => setStoryState((s) => ({ ...s, currentChapterId: chapter.id }))}
+                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm transition-colors ${storyState.currentChapterId === chapter.id ? 'bg-accent-dim text-accent border border-accent/30' : 'text-muted hover:bg-card'}`}
+                >
+                  <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                    <button
+                      onClick={(e) => toggleChapterExpand(e, chapter.id)}
+                      className="text-muted hover:text-main p-0.5 rounded"
+                    >
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                    <FileText size={14} className="shrink-0" />
+                    <span className="truncate">{chapter.title}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => handleAddBreadcrumb(e, chapter.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted hover:text-accent p-1 transition-opacity"
+                      title="Add Breadcrumb"
+                    >
+                      <Disc size={14} />
+                    </button>
+                    {storyState.chapters.length > 1 && (
+                      <button onClick={(e) => { e.stopPropagation(); setChapterToDelete(chapter.id); }} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 p-1 transition-opacity"><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && breadcrumbs.length > 0 && (
+                  <div className="ml-8 mr-2 border-l border-border pl-2 my-1 space-y-1">
+                    {breadcrumbs.map((crumb) => (
+                      <div key={crumb.id} className="group/crumb flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-card/50 cursor-pointer text-muted" onClick={(e) => handleScrollToBreadcrumb(e, chapter.id, crumb.id)}>
+                        <div className="flex items-center gap-2 truncate">
+                          <Disc size={10} className="shrink-0 opacity-50" />
+                          <span className="truncate">{crumb.label}</span>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteBreadcrumb(e, chapter.id, crumb.id)}
+                          className="opacity-0 group-hover/crumb:opacity-100 hover:text-red-400"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="p-3 border-t border-border">
           <button onClick={() => setShowExport(true)} className="w-full flex items-center justify-center gap-2 p-2 rounded-lg bg-card hover:bg-card/80 text-muted hover:text-accent transition-colors text-sm font-medium border border-border"><Download size={16} />Export Story</button>
@@ -336,8 +418,15 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
         </div>
 
         {viewMode === 'edit' ? (
-          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden">
-            <textarea value={currentChapter.content} onChange={(e) => updateContent(e.target.value)} onKeyDown={handleEditorKeyDown} placeholder="Start writing your chapter..." className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim" spellCheck={true} autoCorrect="on" autoCapitalize="sentences" />
+          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col">
+            <ContentEditableEditor
+              key={currentChapter.id}
+              content={currentChapter.content}
+              onChange={updateContent}
+              onKeyDown={handleKeyDown}
+              placeholder="Start writing your chapter..."
+              className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto pb-32"
+            />
           </div>
         ) : (
           <div className="flex-1 bg-surface/50 border-t border-border overflow-y-auto overflow-x-hidden p-3 md:p-8 flex flex-col items-center">
