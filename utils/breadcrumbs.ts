@@ -65,27 +65,35 @@ export function contentToHtml(content: string): string {
  * Creates the HTML string for a breadcrumb widget.
  */
 export function createBreadcrumbHtml(id: string, label: string): string {
-  // We use Tailwind classes for styling.
+  // Use Tailwind classes for styling.
   // The outer div is contenteditable="false" so it's treated as a single block.
   // draggable="true" allows it to be moved.
-  // Minify the HTML string to avoid issues with extra whitespace
+  // New Design:
+  // - Full-width line with text in the middle
+  // - Accent color on hover
+  // - Bookmark icon
+  // - Uppercase, tracking-widest text
+
+  // Lucide Bookmark Icon SVG
+  const bookmarkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bookmark"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
+
   return `
     <div
-      class="breadcrumb-widget flex items-center gap-2 py-4 my-2 select-none group relative"
+      class="breadcrumb-widget flex items-center gap-4 py-6 my-2 select-none group relative cursor-grab active:cursor-grabbing w-full"
       contenteditable="false"
       data-id="${id}"
       data-label="${label.replace(/"/g, '&quot;')}"
       draggable="true"
+      title="Drag to move, click label to rename"
     >
-      <div class="flex-1 h-px bg-border group-hover:bg-accent/50 transition-colors pointer-events-none"></div>
-      <div
-        class="breadcrumb-handle flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface/85 backdrop-blur-xl border border-border group-hover:border-accent/50 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing z-10"
-        title="Drag to move, click to rename"
-      >
-        <span class="text-lg leading-none select-none">🍪</span>
-        <span class="breadcrumb-text text-xs font-medium text-muted group-hover:text-main whitespace-nowrap max-w-[200px] truncate select-none">${label}</span>
+      <div class="flex-1 h-px bg-border group-hover:bg-accent transition-colors duration-300"></div>
+
+      <div class="breadcrumb-handle flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted group-hover:text-accent transition-colors duration-300 select-none whitespace-nowrap">
+        <span class="opacity-50 group-hover:opacity-100 transition-opacity">${bookmarkIcon}</span>
+        <span class="breadcrumb-text">${label}</span>
       </div>
-      <div class="flex-1 h-px bg-border group-hover:bg-accent/50 transition-colors pointer-events-none"></div>
+
+      <div class="flex-1 h-px bg-border group-hover:bg-accent transition-colors duration-300"></div>
     </div>
   `.replace(/\s+/g, ' ').trim();
 }
@@ -99,9 +107,6 @@ export function htmlToContent(html: string): string {
 
   // 1. Replace breadcrumb widgets with markers
   // Match the outer div of the widget.
-  // Note: we need to be careful to match the specific structure we created.
-  // Using a simpler regex that looks for the data attributes is safer than matching exact HTML.
-
   const widgetRegex = /<div[^>]*class=["'].*?breadcrumb-widget.*?["'][^>]*data-id=["'](\w+)["'][^>]*data-label=["']([\s\S]*?)["'][^>]*>[\s\S]*?<\/div>/gi;
 
   let content = html.replace(widgetRegex, (match, id, label) => {
@@ -144,12 +149,6 @@ export function removeBreadcrumb(content: string, id: string): string {
  * Updates a breadcrumb's label.
  */
 export function updateBreadcrumbLabel(content: string, id: string, newLabel: string): string {
-  // Use a more flexible regex to catch potentially encoded content in the middle
-  // But our marker format is strict.
-  // Just replacing the marker is safer.
-
-  // We need to find the old marker. The label part is the variable.
-  // We can't know the old label easily unless we parse, but regex can find it.
   const regex = new RegExp(`<!--\\s*breadcrumb:${id}:([\\s\\S]*?)\\s*-->`, 'g');
   return content.replace(regex, createBreadcrumbMarker(id, newLabel));
 }
