@@ -137,6 +137,20 @@ export const ContentEditableEditor: React.FC<ContentEditableEditorProps> = ({
         }
 
         if (range) {
+          // Enforce block-level placement (snap to nearest block start)
+          // preventing insertion mid-sentence
+          let targetNode = range.startContainer;
+          // Traverse up to find a block container if we are in a text node
+          if (targetNode.nodeType === Node.TEXT_NODE && targetNode.parentElement) {
+             // Basic block elements in contenteditable
+             const block = targetNode.parentElement.closest('p, div, h1, h2, h3, h4, h5, h6, li');
+             // Ensure we are still inside the editor
+             if (block && editorRef.current && editorRef.current.contains(block)) {
+                 range.setStartBefore(block);
+                 range.collapse(true);
+             }
+          }
+
           // Clone and insert at new position
           const newWidget = oldWidget.cloneNode(true);
           range.insertNode(newWidget);

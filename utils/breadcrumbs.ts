@@ -73,31 +73,30 @@ export function createBreadcrumbHtml(id: string, label: string): string {
   const bookmarkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bookmark"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
 
   return `
-    <span
-      class="breadcrumb-widget group relative inline-block select-none align-middle w-0 h-4 mx-1 overflow-visible z-10"
+    <div
+      class="breadcrumb-widget group relative select-none w-full h-0 overflow-visible z-10 my-1"
       contenteditable="false"
       data-id="${id}"
       data-label="${label.replace(/"/g, '&quot;')}"
       draggable="true"
       title="Drag to move: ${label}"
-      style="vertical-align: text-bottom;"
     >
-      <span class="breadcrumb-handle absolute top-1/2 -translate-y-1/2 flex items-center justify-center
-             w-6 h-6 rounded-full bg-surface border border-border text-muted
-             group-hover:text-accent group-hover:border-accent group-hover:bg-accent/10
+      <div class="breadcrumb-handle absolute top-1/2 -translate-y-1/2 flex items-center justify-center
+             w-6 h-6 rounded-full bg-surface border border-accent/50 text-accent
+             group-hover:bg-accent group-hover:text-white group-hover:border-accent
              cursor-grab active:cursor-grabbing transition-all z-20 shadow-sm"
             style="left: -2.5rem;">
         ${bookmarkIcon}
-      </span>
+      </div>
 
-      <span class="absolute left-0 top-1/2 w-[200vw] h-px bg-accent/0 group-hover:bg-accent/30 transition-colors pointer-events-none z-0"></span>
+      <div class="absolute left-0 top-1/2 w-[200vw] h-px bg-accent/0 group-hover:bg-accent/30 transition-colors pointer-events-none z-0"></div>
 
-      <span class="absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity
-             bg-card text-main text-xs px-2 py-1 rounded shadow-md border border-border whitespace-nowrap z-30 pointer-events-none"
-            style="left: -3.5rem; transform: translateX(-100%);">
+      <div class="absolute -top-8 left-0 opacity-0 group-hover:opacity-100 transition-opacity
+             bg-card text-main text-xs px-2 py-1 rounded shadow-md border border-border whitespace-nowrap z-50 pointer-events-none"
+            style="left: -1.75rem; transform: translateX(-50%);">
         ${label}
-      </span>
-    </span>
+      </div>
+    </div>
   `.replace(/\s+/g, ' ').trim();
 }
 
