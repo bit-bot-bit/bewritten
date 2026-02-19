@@ -58,7 +58,6 @@ export async function generateStoryInsights(story, focus = 'all') {
   return data.insights || {
     synopsis: '',
     backCover: '',
-    detailedNotes: '',
   };
 }
 

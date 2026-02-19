@@ -253,7 +253,6 @@ export const Schema = {
     properties: {
       synopsis: { type: Type.STRING },
       backCover: { type: Type.STRING },
-      detailedNotes: { type: Type.STRING },
     },
   },
   storyReview: {

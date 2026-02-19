@@ -408,8 +408,6 @@ router.post('/story-insights', (req, res) =>
       synopsis: 'synopsis',
       backcover: 'backcover',
       'back-cover': 'backcover',
-      detailednotes: 'details',
-      details: 'details',
     };
     const focus = focusMap[focusRaw] || 'all';
     const title = String(story?.title || 'Untitled Story').trim() || 'Untitled Story';
@@ -428,11 +426,10 @@ router.post('/story-insights', (req, res) =>
 
     const prompt = [
       'You are a fiction editorial assistant.',
-      `Return JSON with keys: synopsis, backCover, detailedNotes.`,
+      `Return JSON with keys: synopsis, backCover.`,
       'Requirements:',
       '- synopsis: 120-220 words.',
       '- backCover: 90-150 words in compelling back-cover style, no spoilers beyond midpoint.',
-      '- detailedNotes: 6-10 concise bullets about themes, hooks, genre fit, strengths, and revision opportunities.',
       `Current user focus: ${focus}. Prioritize this focus in quality, but still return all keys.`,
       '',
       `Story Title: ${title}`,
@@ -450,7 +447,6 @@ router.post('/story-insights', (req, res) =>
       fallback: {
         synopsis: 'No synopsis available yet.',
         backCover: 'No back-cover text available yet.',
-        detailedNotes: '- Add more chapter content to generate detailed notes.',
       },
       actorEmail: req.auth.email,
     });

@@ -100,7 +100,6 @@ function sanitizeStorySnapshot(snapshot, fallbackStory, index = 0) {
   const snapInsights = {
     synopsis: String(snapInsightsRaw?.synopsis ?? ''),
     backCover: String(snapInsightsRaw?.backCover ?? ''),
-    detailedNotes: String(snapInsightsRaw?.detailedNotes ?? ''),
   };
 
   const snapReviews = asArray(snapshot?.aiReviews)
@@ -153,7 +152,6 @@ function sanitizeStory(story, index = 0) {
   const aiInsights = {
     synopsis: String(aiInsightsRaw?.synopsis ?? ''),
     backCover: String(aiInsightsRaw?.backCover ?? ''),
-    detailedNotes: String(aiInsightsRaw?.detailedNotes ?? ''),
   };
 
   const aiReviews = asArray(story?.aiReviews)

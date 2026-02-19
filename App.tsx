@@ -118,7 +118,6 @@ function createFreshStory(num = 1) {
     aiInsights: {
       synopsis: '',
       backCover: '',
-      detailedNotes: '',
     },
     storyNotes: '',
     preservedVersions: [],
@@ -207,7 +206,7 @@ const App = () => {
       characters: story.characters || [],
       locations: story.locations || [],
       plotPoints: story.plotPoints || [],
-      aiInsights: story.aiInsights || { synopsis: '', backCover: '', detailedNotes: '' },
+      aiInsights: story.aiInsights || { synopsis: '', backCover: '' },
       storyNotes: story.storyNotes || '',
       preservedVersions: story.preservedVersions || [],
       genre: story.genre || '',
@@ -345,9 +344,8 @@ const App = () => {
           ? {
               synopsis: String(fullStory.aiInsights.synopsis || ''),
               backCover: String(fullStory.aiInsights.backCover || ''),
-              detailedNotes: String(fullStory.aiInsights.detailedNotes || ''),
             }
-          : { synopsis: '', backCover: '', detailedNotes: '' },
+          : { synopsis: '', backCover: '' },
         storyNotes: String(fullStory?.storyNotes || ''),
         preservedVersions: Array.isArray(fullStory?.preservedVersions) ? fullStory.preservedVersions.slice(0, 10) : [],
         genre: typeof fullStory.genre === 'string' ? fullStory.genre : '',

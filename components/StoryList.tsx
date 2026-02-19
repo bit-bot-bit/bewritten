@@ -51,7 +51,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
         locations: [],
         plotPoints: [],
         plotConsensusCache: { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
-        aiInsights: { synopsis: '', backCover: '', detailedNotes: '' },
+        aiInsights: { synopsis: '', backCover: '' },
         storyNotes: '',
         preservedVersions: [],
         genre: '',
@@ -192,7 +192,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
       locations: story?.locations || [],
       plotPoints: story?.plotPoints || [],
       plotConsensusCache: story?.plotConsensusCache || { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
-      aiInsights: story?.aiInsights || { synopsis: '', backCover: '', detailedNotes: '' },
+      aiInsights: story?.aiInsights || { synopsis: '', backCover: '' },
       genre: story?.genre || '',
       aiReviews: Array.isArray(story?.aiReviews) ? story.aiReviews.slice(0, 3) : [],
       storyNotes: String(story?.storyNotes || ''),
@@ -288,7 +288,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
               {[
                 { id: 'synopsis', label: 'Synopsis' },
                 { id: 'backCover', label: 'Back Cover' },
-                { id: 'detailedNotes', label: 'Detailed Notes' },
                 { id: 'review', label: 'AI Review' },
                 { id: 'notes', label: 'Notes' },
                 { id: 'versions', label: 'Versions' },
@@ -301,7 +300,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                   {tab.label}
                 </button>
               ))}
-              {['synopsis', 'backCover', 'detailedNotes'].includes(insightsTab) && !currentInsights && !isGeneratingInsights && (
+              {['synopsis', 'backCover'].includes(insightsTab) && !currentInsights?.[insightsTab] && !isGeneratingInsights && (
                 <button
                   onClick={() => ensureInsights(insightsStory, insightsTab)}
                   className="ml-auto px-3 py-1.5 rounded-lg border border-border text-sm text-main hover:bg-surface"
