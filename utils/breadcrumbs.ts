@@ -146,7 +146,12 @@ export function htmlToContent(html: string): string {
 export function stripBreadcrumbs(content: string): string {
   if (!content) return '';
   let clean = content.replace(OLD_BREADCRUMB_REGEX, '');
+  // Replace start/end markers with empty string, preserving the text inside.
   clean = clean.replace(BC_START_REGEX, '').replace(BC_END_REGEX, '');
+
+  // Also strip any residual HTML spans if they were somehow saved directly (fallback)
+  clean = clean.replace(/<span class="breadcrumb-highlight[^>]*>(.*?)<\/span>/g, '$1');
+
   return clean;
 }
 
