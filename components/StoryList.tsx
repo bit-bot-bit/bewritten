@@ -315,7 +315,11 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                 <button
                   key={tab.id}
                   onClick={() => setInsightsTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg border text-sm ${insightsTab === tab.id ? 'border-accent bg-accent/15 text-accent' : 'border-border text-muted hover:text-main hover:bg-surface'}`}
+                  className={`px-3 py-1.5 rounded-lg border text-sm transition-colors font-medium ${
+                    insightsTab === tab.id
+                      ? 'bg-accent text-white border-accent shadow-lg shadow-accent/20'
+                      : 'border-border text-muted hover:text-main hover:bg-surface'
+                  }`}
                 >
                   {tab.label}
                 </button>

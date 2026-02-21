@@ -15,7 +15,7 @@ export function wrapSelectionWithBreadcrumb(id: string, label: string): boolean 
   const range = selection.getRangeAt(0);
 
   const span = document.createElement('span');
-  span.className = 'breadcrumb-highlight bg-accent-dim box-decoration-clone';
+  span.className = 'breadcrumb-highlight bg-yellow-500/30 text-main box-decoration-clone';
   span.dataset.breadcrumbId = id;
   span.dataset.label = label;
 
