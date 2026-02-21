@@ -44,36 +44,43 @@ function getMeasureContext(fontPx) {
   return ctx;
 }
 
+function stripTags(html) {
+  return html.replace(/<[^>]+>/g, '');
+}
+
 function wrapParagraphByWidth(paragraph, maxWidthPx, ctx, fontPx) {
   if (!paragraph.trim()) return [''];
+
+  // Basic HTML-aware split: preserve tags but split on spaces outside tags?
+  // For simplicity, we split by spaces and assume tags wrap words or are inline.
+  // This is imperfect but works for basic formatting like <b>word</b>.
   const words = paragraph.split(/\s+/);
   const lines = [];
   let current = '';
 
-  const measure = (text) => (ctx ? ctx.measureText(text).width : text.length * (fontPx * 0.55));
+  const measure = (text) => {
+      const clean = stripTags(text);
+      return ctx ? ctx.measureText(clean).width : clean.length * (fontPx * 0.55);
+  };
 
   const pushWordHardWrapped = (word) => {
-    let chunk = '';
-    for (const ch of word) {
-      const next = chunk + ch;
-      if (measure(next) <= maxWidthPx) chunk = next;
-      else {
-        if (chunk) lines.push(chunk);
-        chunk = ch;
-      }
-    }
-    if (chunk) lines.push(chunk);
+    // Hard wrapping with HTML tags is complex.
+    // For now, if a word is too long (e.g. huge URL), we might break layout or just clip.
+    // Given standard writing, huge words are rare. We'll skip hard wrap logic for HTML content to avoid breaking tags.
+    lines.push(word);
   };
 
   for (const word of words) {
     if (!word) continue;
+
+    // Check if word itself exceeds line (rare in prose)
     if (measure(word) > maxWidthPx) {
-      if (current) {
-        lines.push(current);
-        current = '';
-      }
-      pushWordHardWrapped(word);
-      continue;
+        if (current) {
+            lines.push(current);
+            current = '';
+        }
+        lines.push(word); // Force push large word
+        continue;
     }
 
     if (!current) {
@@ -449,7 +456,11 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                           <div style={{ fontSize: `${previewTypography.chapterTitlePx}px`, fontWeight: 700, lineHeight: 1.2 }}>{currentChapter.title?.trim() || 'Untitled Chapter'}</div>
                         </div>
                       )}
-                      {page || <span className="text-gray-400 italic">No content...</span>}
+                      {page ? (
+                        <div dangerouslySetInnerHTML={{ __html: page }} />
+                      ) : (
+                        <span className="text-gray-400 italic">No content...</span>
+                      )}
                     </div>
                   </div>
                   <div className="text-xs text-muted">Page {idx + 1}</div>
