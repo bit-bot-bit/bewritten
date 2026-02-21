@@ -9,7 +9,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const [storyToDelete, setStoryToDelete] = useState(null);
   const [aiMenuStoryId, setAiMenuStoryId] = useState(null);
   const [insightsStory, setInsightsStory] = useState(null);
-  const [insightsTab, setInsightsTab] = useState('synopsis');
+  const [insightsTab, setInsightsTab] = useState('review');
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [insightsError, setInsightsError] = useState('');
   const [insightsByStory, setInsightsByStory] = useState({});
@@ -20,26 +20,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const [versionName, setVersionName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
-  const [contentDraft, setContentDraft] = useState('');
-
-  // Sync draft when switching tabs or story updates
-  React.useEffect(() => {
-    if (insightsStory && (insightsTab === 'synopsis' || insightsTab === 'backCover')) {
-       setContentDraft(insightsStory.aiInsights?.[insightsTab] || '');
-    }
-  }, [insightsStory, insightsTab]);
-
-  const saveContent = async () => {
-    if (!insightsStory) return;
-    const current = insightsStory.aiInsights || { synopsis: '', backCover: '' };
-    const nextInsights = { ...current, [insightsTab]: contentDraft };
-
-    // Optimistic update
-    setInsightsByStory((prev) => ({ ...prev, [insightsStory.id]: nextInsights }));
-    const updatedStory = { ...insightsStory, aiInsights: nextInsights };
-    setInsightsStory(updatedStory);
-    await updateAndPersistStory(updatedStory);
-  };
 
   const handleFileImport = async (e) => {
     const file = e.target.files?.[0];
@@ -71,7 +51,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
         locations: [],
         plotPoints: [],
         plotConsensusCache: { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
-        aiInsights: { synopsis: '', backCover: '' },
+        aiInsights: {},
         storyNotes: '',
         preservedVersions: [],
         genre: '',
@@ -106,32 +86,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   };
 
   const getStoryTitle = (id) => stories.find((s) => s.id === id)?.title || 'Story';
-  const currentInsights = insightsStory
-    ? (insightsByStory[insightsStory.id] || insightsStory.aiInsights || null)
-    : null;
-
-  const ensureInsights = async (story, focus = 'all') => {
-    if (!story?.id) return;
-    if (insightsByStory[story.id] || story?.aiInsights) return;
-    setIsGeneratingInsights(true);
-    setInsightsError('');
-    try {
-      const insights = await generateStoryInsights(story, focus);
-      setInsightsByStory((prev) => ({ ...prev, [story.id]: insights }));
-      const updatedStory = {
-        ...story,
-        aiInsights: insights,
-      };
-      setInsightsStory((prev) => (prev?.id === updatedStory.id ? updatedStory : prev));
-      await updateAndPersistStory(updatedStory);
-    } catch (e) {
-      setInsightsError(e instanceof Error ? e.message : 'Failed to generate insights.');
-    } finally {
-      setIsGeneratingInsights(false);
-    }
-  };
-
-  const openInsights = async (story, tab = 'synopsis') => {
+  const openInsights = async (story, tab = 'review') => {
     setInsightsStory(story);
     setInsightsTab(tab);
     setReviewGenre(String(story?.genre || ''));
@@ -212,7 +167,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
       locations: story?.locations || [],
       plotPoints: story?.plotPoints || [],
       plotConsensusCache: story?.plotConsensusCache || { byChapter: {}, all: { runs: [[], [], []], consensus: [] } },
-      aiInsights: story?.aiInsights || { synopsis: '', backCover: '' },
+      aiInsights: story?.aiInsights || {},
       genre: story?.genre || '',
       aiReviews: Array.isArray(story?.aiReviews) ? story.aiReviews.slice(0, 3) : [],
       storyNotes: String(story?.storyNotes || ''),
@@ -306,8 +261,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
 
             <div className="px-5 py-3 border-b border-border flex flex-wrap items-center gap-2">
               {[
-                { id: 'synopsis', label: 'Synopsis' },
-                { id: 'backCover', label: 'Back Cover' },
                 { id: 'review', label: 'AI Review' },
                 { id: 'notes', label: 'Notes' },
                 { id: 'versions', label: 'Versions' },
@@ -324,25 +277,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                   {tab.label}
                 </button>
               ))}
-              {['synopsis', 'backCover'].includes(insightsTab) && !isGeneratingInsights && (
-                <div className="ml-auto flex items-center gap-2">
-                    <button
-                      onClick={() => ensureInsights(insightsStory, insightsTab)}
-                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-main hover:bg-surface flex items-center gap-2"
-                    >
-                      <Sparkles size={14} />
-                      {currentInsights?.[insightsTab] ? 'Regenerate' : 'Generate'}
-                    </button>
-                    {contentDraft !== (currentInsights?.[insightsTab] || '') && (
-                        <button
-                          onClick={() => saveContent().catch(() => {})}
-                          className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm hover:brightness-110"
-                        >
-                          Save
-                        </button>
-                    )}
-                </div>
-              )}
             </div>
 
             <div className="p-5 overflow-y-auto max-h-[60vh]">
@@ -458,31 +392,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                 </div>
               )}
 
-              {insightsTab !== 'review' && insightsTab !== 'notes' && insightsTab !== 'versions' && (
-                <>
-                  {isGeneratingInsights && (
-                    <div className="text-muted text-sm flex items-center gap-2 mb-4">
-                      <Loader2 size={15} className="animate-spin" />
-                      Generating insights from the full story...
-                    </div>
-                  )}
-                  {!isGeneratingInsights && insightsError && <div className="text-sm text-red-300 mb-4">{insightsError}</div>}
-
-                  {!isGeneratingInsights && (
-                    <div className="flex flex-col gap-2 h-full">
-                       <textarea
-                          value={contentDraft}
-                          onChange={(e) => setContentDraft(e.target.value)}
-                          className="themed-control w-full flex-1 rounded-lg border px-4 py-3 text-main text-sm md:text-base leading-relaxed min-h-[300px] resize-y focus:ring-2 focus:ring-accent/50 outline-none"
-                          placeholder={insightsTab === 'synopsis' ? "No synopsis yet. Click Generate or start writing..." : "No back cover blurb yet. Click Generate or start writing..."}
-                       />
-                       <div className="text-xs text-muted text-right">
-                          {contentDraft.length} characters
-                       </div>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -540,12 +449,6 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                     style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-main)' }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      onClick={() => openInsights(story, 'synopsis')}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
-                    >
-                      Details
-                    </button>
                     <button
                       onClick={() => openInsights(story, 'review')}
                       className="w-full text-left px-3 py-2 rounded-lg text-sm text-main hover:bg-surface"
