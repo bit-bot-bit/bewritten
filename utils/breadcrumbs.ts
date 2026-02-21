@@ -12,8 +12,8 @@ export interface Breadcrumb {
 }
 
 const OLD_BREADCRUMB_REGEX = /<!--\s*breadcrumb:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
-const BC_START_REGEX = /<!--\s*bc:start:([a-zA-Z0-9-]+):([\s\S]*?)\s*-->/g;
-const BC_END_REGEX = /<!--\s*bc:end:([a-zA-Z0-9-]+)\s*-->/g;
+const BC_START_REGEX = /(?:<!--|&lt;!--)\s*bc:start:([a-zA-Z0-9-]+):([\s\S]*?)\s*(?:-->|--&gt;)/g;
+const BC_END_REGEX = /(?:<!--|&lt;!--)\s*bc:end:([a-zA-Z0-9-]+)\s*(?:-->|--&gt;)/g;
 
 /**
  * Parses content to find all breadcrumbs.
