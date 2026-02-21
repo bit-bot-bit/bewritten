@@ -1,3 +1,10 @@
+export interface ApiClient {
+  get(path: string): Promise<any>;
+  post(path: string, body: any): Promise<any>;
+  put(path: string, body: any): Promise<any>;
+  delete(path: string): Promise<any>;
+}
+
 const API_BASE = '/api';
 
 interface RequestInit {
@@ -38,18 +45,46 @@ async function request(path: string, init: RequestInit = {}) {
   return res.json();
 }
 
+export class RestApiClient implements ApiClient {
+  async get(path: string) {
+    return request(path, { method: 'GET' });
+  }
+
+  async post(path: string, body: any) {
+    return request(path, { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  async put(path: string, body: any) {
+    return request(path, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  async delete(path: string) {
+    return request(path, { method: 'DELETE' });
+  }
+}
+
+let currentApiClient: ApiClient = new RestApiClient();
+
+export function setApiClient(client: ApiClient) {
+  currentApiClient = client;
+}
+
+export function getApiClient(): ApiClient {
+  return currentApiClient;
+}
+
 export function apiGet(path: string) {
-  return request(path, { method: 'GET' });
+  return currentApiClient.get(path);
 }
 
 export function apiPost(path: string, body: any) {
-  return request(path, { method: 'POST', body: JSON.stringify(body) });
+  return currentApiClient.post(path, body);
 }
 
 export function apiPut(path: string, body: any) {
-  return request(path, { method: 'PUT', body: JSON.stringify(body) });
+  return currentApiClient.put(path, body);
 }
 
 export function apiDelete(path: string) {
-  return request(path, { method: 'DELETE' });
+  return currentApiClient.delete(path);
 }

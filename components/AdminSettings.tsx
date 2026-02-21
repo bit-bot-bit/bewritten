@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { apiDelete, apiGet, apiPut } from '../services/apiClient';
+import {
+  getAdminSettings,
+  updateRegistration,
+  updateUserLock,
+  updateUserRole,
+  updateUserTier,
+  updateUserCredits,
+  deleteUser,
+  resetUserPassword,
+  updateMonetization,
+} from '../services/adminService';
 import { CheckCircle2, XCircle, Shield, Link as LinkIcon, RefreshCw, Lock, Unlock, Trash2, UserCog, KeyRound, Coins } from 'lucide-react';
 
 export const AdminSettings = ({ compact = false }) => {
@@ -14,7 +24,7 @@ export const AdminSettings = ({ compact = false }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await apiGet('/admin/settings');
+      const res = await getAdminSettings();
       setData(res);
       setMonetization(res.monetization || null);
       setReplaceSharedKey(false);
@@ -44,25 +54,25 @@ export const AdminSettings = ({ compact = false }) => {
 
   const toggleRegistration = (enabled) => {
     withRefresh(async () => {
-      await apiPut('/admin/settings/registration', { enabled });
+      await updateRegistration(enabled);
     }).catch(() => {});
   };
 
   const toggleUserLock = (email, locked) => {
     withRefresh(async () => {
-      await apiPut(`/admin/users/${encodeURIComponent(email)}/lock`, { locked });
+      await updateUserLock(email, locked);
     }).catch(() => {});
   };
 
   const setUserRole = (email, role) => {
     withRefresh(async () => {
-      await apiPut(`/admin/users/${encodeURIComponent(email)}/role`, { role });
+      await updateUserRole(email, role);
     }).catch(() => {});
   };
 
   const setUserTier = (email, tier) => {
     withRefresh(async () => {
-      await apiPut(`/admin/users/${encodeURIComponent(email)}/tier`, { tier });
+      await updateUserTier(email, tier);
     }).catch(() => {});
   };
 
@@ -75,14 +85,14 @@ export const AdminSettings = ({ compact = false }) => {
       return;
     }
     withRefresh(async () => {
-      await apiPut(`/admin/users/${encodeURIComponent(email)}/credits`, { balance });
+      await updateUserCredits(email, balance);
     }).catch(() => {});
   };
 
-  const deleteUser = (email) => {
+  const handleDeleteUser = (email) => {
     if (!window.confirm(`Delete user ${email}? This removes all their stories and settings.`)) return;
     withRefresh(async () => {
-      await apiDelete(`/admin/users/${encodeURIComponent(email)}`);
+      await deleteUser(email);
     }).catch(() => {});
   };
 
@@ -96,14 +106,14 @@ export const AdminSettings = ({ compact = false }) => {
     }
 
     withRefresh(async () => {
-      await apiPut(`/admin/users/${encodeURIComponent(email)}/password`, { password });
+      await resetUserPassword(email, password);
     }).catch(() => {});
   };
 
   const saveMonetization = () => {
     if (!monetization) return;
     withRefresh(async () => {
-      await apiPut('/admin/settings/monetization', {
+      await updateMonetization({
         monetization: {
           ...monetization,
           shared: {
@@ -356,7 +366,7 @@ export const AdminSettings = ({ compact = false }) => {
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={14} /></button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={14} /> : <Lock size={14} />}</button>
                 <button onClick={() => resetPassword(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-amber-700/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40" title="Reset password and force change on login"><KeyRound size={14} /></button>
-                <button onClick={() => deleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40" title="Delete user"><Trash2 size={14} /></button>
+                <button onClick={() => handleDeleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="p-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40" title="Delete user"><Trash2 size={14} /></button>
               </div>
             </div>
           ))}
@@ -392,7 +402,7 @@ export const AdminSettings = ({ compact = false }) => {
                 <button onClick={() => setUserRole(u.email, u.role === 'admin' ? 'user' : 'admin')} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.role === 'admin' ? 'Demote to user' : 'Promote to admin'}><UserCog size={13} />Role</button>
                 <button onClick={() => toggleUserLock(u.email, !u.locked)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-border hover:bg-surface text-main disabled:opacity-40 text-xs flex items-center justify-center gap-1" title={u.locked ? 'Unlock account' : 'Lock account'}>{u.locked ? <Unlock size={13} /> : <Lock size={13} />}Lock</button>
                 <button onClick={() => resetPassword(u.email)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-amber-700/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 text-xs flex items-center justify-center gap-1" title="Reset password and force change on login"><KeyRound size={13} />Reset</button>
-                <button onClick={() => deleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40 text-xs flex items-center justify-center gap-1" title="Delete user"><Trash2 size={13} />Delete</button>
+                <button onClick={() => handleDeleteUser(u.email)} disabled={isSaving || u.email === data.user.email} className="px-2 py-2 rounded border border-red-700/40 text-red-400 hover:bg-red-900/20 disabled:opacity-40 text-xs flex items-center justify-center gap-1" title="Delete user"><Trash2 size={13} />Delete</button>
               </div>
             </div>
           ))}

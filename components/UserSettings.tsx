@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiGet, apiPut } from '../services/apiClient';
+import { getUserSettings, updateUserSettings } from '../services/userService';
 
 const TARGET_LABELS = {
   gemini: 'Gemini',
@@ -31,7 +31,7 @@ export const UserSettings = () => {
     setIsLoading(true);
     setStatus('');
     try {
-      const data = await apiGet('/user/settings');
+      const data = await getUserSettings();
       setSettings(data.settings);
       setReplaceKey(false);
     } catch (e) {
@@ -49,13 +49,13 @@ export const UserSettings = () => {
     setIsSaving(true);
     setStatus('');
     try {
-      const data = await apiPut('/user/settings', {
-        settings: {
+      const data = await updateUserSettings(
+        {
           ...settings,
           aiApiKey: replaceKey ? settings.aiApiKey : '',
         },
-        keepExistingKey: !replaceKey,
-      });
+        !replaceKey
+      );
       setSettings(data.settings);
       setReplaceKey(false);
       setStatus('Settings saved.');
