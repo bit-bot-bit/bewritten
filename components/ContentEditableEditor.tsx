@@ -11,6 +11,7 @@ interface ContentEditableEditorProps {
   placeholder?: string;
   className?: string;
   readOnly?: boolean;
+  isMobile?: boolean;
 }
 
 export interface EditorRef {
@@ -25,6 +26,7 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
   placeholder,
   className,
   readOnly = false,
+  isMobile = false,
 }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const lastHtmlRef = useRef<string>(contentToHtml(content));
@@ -193,7 +195,7 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
         aria-placeholder={placeholder}
         style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
       />
-      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} />
+      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} isMobile={isMobile} />
     </>
   );
 });

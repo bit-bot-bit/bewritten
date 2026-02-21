@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Character, Chapter } from '../types';
-import { Plus, Trash2, Wand2, User, ScanSearch, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Wand2, User, ScanSearch, Loader2, X, Edit3 } from 'lucide-react';
 import { generateCharacterProfile, extractCharactersFromText } from '../services/geminiService';
 
 interface CharacterManagerProps {
@@ -13,7 +13,13 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [newCharPrompt, setNewCharPrompt] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+
+  const handleSaveCharacter = () => {
+    if (!editingCharacter) return;
+    setCharacters((prev) => prev.map((c) => (c.id === editingCharacter.id ? editingCharacter : c)));
+    setEditingCharacter(null);
+  };
 
   const handleGenerate = async () => {
     if (!newCharPrompt.trim()) return;
@@ -30,6 +36,7 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
       };
       setCharacters([...characters, newCharacter]);
       setNewCharPrompt('');
+      setEditingCharacter(newCharacter);
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Failed to generate character.';
       const message = String(raw).includes('400')
@@ -93,10 +100,71 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
 
   const deleteCharacter = (id: string) => {
     setCharacters(characters.filter(c => c.id !== id));
+    if (editingCharacter?.id === id) setEditingCharacter(null);
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto overflow-x-hidden">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto h-full overflow-y-auto overflow-x-hidden relative">
+      {editingCharacter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={() => setEditingCharacter(null)} aria-label="Close modal" />
+          <div className="relative w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface">
+              <h3 className="text-lg font-bold text-main">Edit Character</h3>
+              <button onClick={() => setEditingCharacter(null)} className="p-2 rounded-lg text-muted hover:text-main hover:bg-card transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase text-muted">Name</label>
+                  <input
+                    value={editingCharacter.name}
+                    onChange={(e) => setEditingCharacter({ ...editingCharacter, name: e.target.value })}
+                    className="themed-control w-full rounded-xl border px-4 py-2.5 text-main focus:ring-2 focus:ring-accent outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase text-muted">Role</label>
+                  <input
+                    value={editingCharacter.role}
+                    onChange={(e) => setEditingCharacter({ ...editingCharacter, role: e.target.value })}
+                    className="themed-control w-full rounded-xl border px-4 py-2.5 text-main focus:ring-2 focus:ring-accent outline-none"
+                    placeholder="Protagonist, Antagonist, Support..."
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-muted">Description</label>
+                <textarea
+                  value={editingCharacter.description}
+                  onChange={(e) => setEditingCharacter({ ...editingCharacter, description: e.target.value })}
+                  className="themed-control w-full rounded-xl border px-4 py-3 text-main focus:ring-2 focus:ring-accent outline-none min-h-[120px] resize-y"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-muted">Traits (comma separated)</label>
+                <input
+                  value={editingCharacter.traits.join(', ')}
+                  onChange={(e) => setEditingCharacter({ ...editingCharacter, traits: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                  className="themed-control w-full rounded-xl border px-4 py-2.5 text-main focus:ring-2 focus:ring-accent outline-none"
+                  placeholder="Brave, Cynical, Cybernetic Eye..."
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border bg-surface flex justify-end gap-2">
+              <button onClick={() => setEditingCharacter(null)} className="px-4 py-2 rounded-xl text-muted hover:text-main hover:bg-card transition-colors">Cancel</button>
+              <button onClick={handleSaveCharacter} className="px-6 py-2 rounded-xl bg-accent text-white font-medium hover:brightness-110 transition-all">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-bold text-main">Character Bible</h2>
@@ -144,16 +212,14 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
         {characters.map(char => (
           <div
             key={char.id}
-            className={`bg-card border border-border rounded-2xl p-6 group hover:border-accent/50 transition-all relative ${
-              expandedId === char.id ? 'col-span-1 md:col-span-2 lg:col-span-3' : ''
-            }`}
+            className="bg-card border border-border rounded-2xl p-6 group hover:border-accent/50 transition-all relative flex flex-col"
           >
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-muted shrink-0">
                   <User size={20} />
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h3 className="font-bold text-lg text-main truncate pr-2">{char.name}</h3>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface text-muted uppercase tracking-wider">
                     {char.role}
@@ -162,11 +228,11 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button
-                  onClick={() => setExpandedId(expandedId === char.id ? null : char.id)}
+                  onClick={() => setEditingCharacter(char)}
                   className="text-muted hover:text-accent p-1.5 rounded-lg hover:bg-surface transition-colors"
-                  title={expandedId === char.id ? "Collapse" : "Expand"}
+                  title="Edit Character"
                 >
-                  <Plus size={18} className={`transition-transform duration-200 ${expandedId === char.id ? 'rotate-45' : ''}`} />
+                  <Edit3 size={18} />
                 </button>
                 <button
                   onClick={() => deleteCharacter(char.id)}
@@ -177,11 +243,11 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
               </div>
             </div>
             
-            <div className={`text-muted text-sm mb-4 whitespace-pre-line break-words transition-all ${expandedId === char.id ? '' : 'line-clamp-3'}`}>
+            <div className="text-muted text-sm mb-4 whitespace-pre-line break-words line-clamp-3 flex-1">
                 {char.description}
             </div>
             
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mt-auto">
               {char.traits.map((trait, i) => (
                 <span key={i} className="text-xs bg-accent-dim text-accent px-2 py-1 rounded-md border border-accent/20">
                   {trait}
@@ -202,6 +268,7 @@ export const CharacterManager: React.FC<CharacterManagerProps> = ({ characters, 
                  relationships: [] 
              };
              setCharacters([...characters, newC]);
+             setEditingCharacter(newC);
           }}
           className="border-2 border-dashed border-border rounded-2xl p-6 flex flex-col items-center justify-center text-muted hover:text-accent hover:border-accent/50 transition-all cursor-pointer min-h-[200px]"
         >

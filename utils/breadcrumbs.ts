@@ -68,7 +68,7 @@ export function contentToHtml(content: string): string {
   const startMarkerRegex = /&lt;!--\s*bc:start:([a-zA-Z0-9-]+):([\s\S]*?)\s*--&gt;/g;
   html = html.replace(startMarkerRegex, (match, id, label) => {
     const safeLabel = label.replace(/"/g, '&quot;');
-    return `<span class="breadcrumb-highlight bg-accent-dim border-b border-accent box-decoration-clone" data-breadcrumb-id="${id}" data-label="${safeLabel}">`;
+    return `<span class="breadcrumb-highlight bg-accent-dim box-decoration-clone" data-breadcrumb-id="${id}" data-label="${safeLabel}">`;
   });
 
   // 4. Replace end markers
