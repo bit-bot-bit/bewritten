@@ -57,11 +57,12 @@ export function contentToHtml(content: string): string {
   // 1. Strip old breadcrumbs (migration)
   let html = content.replace(OLD_BREADCRUMB_REGEX, '');
 
-  // 2. Escape HTML entities
+  // 2. Escape HTML entities, but preserve specific formatting tags
   html = html
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;(\/?)(b|i|u|strong|em|mark)&gt;/gi, '<$1$2>');
 
   // 3. Replace start markers
   // The markers are now escaped: &lt;!-- bc:start:id:label --&gt;
@@ -127,9 +128,14 @@ export function htmlToContent(html: string): string {
     .replace(/<p>/gi, '\n')
     .replace(/<\/p>/gi, '')
     .replace(/&nbsp;/g, ' ')
+    // Preserve formatting tags before unescaping
+    .replace(/<(b|i|u|strong|em|mark)>/gi, '@@$1@@')
+    .replace(/<\/(b|i|u|strong|em|mark)>/gi, '@@/$1@@')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
+    .replace(/&amp;/g, '&')
+    // Restore formatting tags
+    .replace(/@@(\/?)(b|i|u|strong|em|mark)@@/gi, '<$1$2>');
 
   return content;
 }

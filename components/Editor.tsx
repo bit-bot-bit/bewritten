@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { checkContinuity } from '../services/geminiService';
-import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
 import { ExportModal } from './ExportModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { generateId } from '../utils/id';
@@ -306,14 +306,6 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <button
-                      onMouseDown={(e) => e.preventDefault()} // Prevent focus loss
-                      onClick={(e) => handleAddBreadcrumb(e, chapter.id)}
-                      className={`opacity-0 group-hover:opacity-100 text-muted hover:text-accent p-1 transition-opacity ${chapter.id !== currentChapter.id ? 'hidden' : ''}`}
-                      title="Add Breadcrumb (Select text first)"
-                    >
-                      <Disc size={14} />
-                    </button>
                     {storyState.chapters.length > 1 && (
                       <button onClick={(e) => { e.stopPropagation(); setChapterToDelete(chapter.id); }} className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 p-1 transition-opacity"><Trash2 size={14} /></button>
                     )}
@@ -323,16 +315,16 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                 {isExpanded && breadcrumbs.length > 0 && (
                   <div className="ml-8 mr-2 border-l border-border pl-2 my-1 space-y-1">
                     {breadcrumbs.map((crumb) => (
-                      <div key={crumb.id} className="group/crumb flex items-center justify-between text-xs py-1 px-2 rounded hover:bg-card/50 cursor-pointer text-muted" onClick={(e) => handleScrollToBreadcrumb(e, chapter.id, crumb.id)}>
-                        <div className="flex items-center gap-2 truncate">
-                          <Disc size={10} className="shrink-0 opacity-50" />
-                          <span className="truncate">{crumb.label}</span>
+                      <div key={crumb.id} className="group/crumb flex items-center justify-between py-2 px-2 rounded hover:bg-card/50 cursor-pointer text-muted" onClick={(e) => handleScrollToBreadcrumb(e, chapter.id, crumb.id)}>
+                        <div className="flex items-center gap-3 truncate">
+                          <Bookmark size={14} className="shrink-0 opacity-70 text-accent" />
+                          <span className="truncate text-sm font-medium">{crumb.label}</span>
                         </div>
                         <button
                           onClick={(e) => handleDeleteBreadcrumb(e, chapter.id, crumb.id)}
-                          className="opacity-0 group-hover/crumb:opacity-100 hover:text-red-400"
+                          className="opacity-0 group-hover/crumb:opacity-100 hover:text-red-400 p-1 hover:bg-red-900/10 rounded transition-colors"
                         >
-                          <Trash2 size={10} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     ))}
