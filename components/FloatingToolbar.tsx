@@ -4,19 +4,29 @@ import { Disc } from 'lucide-react';
 interface FloatingToolbarProps {
   position: { x: number; y: number } | null;
   onAddBreadcrumb: () => void;
+  isMobile?: boolean;
 }
 
-export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb }) => {
+export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, isMobile = false }) => {
   if (!position) return null;
+
+  const style: React.CSSProperties = isMobile
+    ? {
+        left: '50%',
+        bottom: '2rem',
+        transform: 'translateX(-50%)',
+        top: 'auto',
+      }
+    : {
+        left: position.x,
+        top: position.y,
+        transform: 'translate(-50%, -100%) translateY(-10px)',
+      };
 
   return (
     <div
       className="fixed z-50 flex items-center gap-1 p-1 bg-surface border border-border rounded-lg shadow-lg animate-in fade-in zoom-in-95 duration-100"
-      style={{
-        left: position.x,
-        top: position.y,
-        transform: 'translate(-50%, -100%) translateY(-10px)', // Center horizontally, position above cursor
-      }}
+      style={style}
       onMouseDown={(e) => e.preventDefault()} // Prevent stealing focus from editor selection
     >
       <button

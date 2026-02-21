@@ -20,6 +20,26 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
   const [versionName, setVersionName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
+  const [contentDraft, setContentDraft] = useState('');
+
+  // Sync draft when switching tabs or story updates
+  React.useEffect(() => {
+    if (insightsStory && (insightsTab === 'synopsis' || insightsTab === 'backCover')) {
+       setContentDraft(insightsStory.aiInsights?.[insightsTab] || '');
+    }
+  }, [insightsStory, insightsTab]);
+
+  const saveContent = async () => {
+    if (!insightsStory) return;
+    const current = insightsStory.aiInsights || { synopsis: '', backCover: '' };
+    const nextInsights = { ...current, [insightsTab]: contentDraft };
+
+    // Optimistic update
+    setInsightsByStory((prev) => ({ ...prev, [insightsStory.id]: nextInsights }));
+    const updatedStory = { ...insightsStory, aiInsights: nextInsights };
+    setInsightsStory(updatedStory);
+    await updateAndPersistStory(updatedStory);
+  };
 
   const handleFileImport = async (e) => {
     const file = e.target.files?.[0];
@@ -300,13 +320,24 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
                   {tab.label}
                 </button>
               ))}
-              {['synopsis', 'backCover'].includes(insightsTab) && !currentInsights?.[insightsTab] && !isGeneratingInsights && (
-                <button
-                  onClick={() => ensureInsights(insightsStory, insightsTab)}
-                  className="ml-auto px-3 py-1.5 rounded-lg border border-border text-sm text-main hover:bg-surface"
-                >
-                  Generate
-                </button>
+              {['synopsis', 'backCover'].includes(insightsTab) && !isGeneratingInsights && (
+                <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => ensureInsights(insightsStory, insightsTab)}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-main hover:bg-surface flex items-center gap-2"
+                    >
+                      <Sparkles size={14} />
+                      {currentInsights?.[insightsTab] ? 'Regenerate' : 'Generate'}
+                    </button>
+                    {contentDraft !== (currentInsights?.[insightsTab] || '') && (
+                        <button
+                          onClick={() => saveContent().catch(() => {})}
+                          className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm hover:brightness-110"
+                        >
+                          Save
+                        </button>
+                    )}
+                </div>
               )}
             </div>
 
@@ -425,21 +456,27 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
 
               {insightsTab !== 'review' && insightsTab !== 'notes' && insightsTab !== 'versions' && (
                 <>
-              {isGeneratingInsights && (
-                <div className="text-muted text-sm flex items-center gap-2">
-                  <Loader2 size={15} className="animate-spin" />
-                  Generating insights from the full story...
-                </div>
-              )}
-              {!isGeneratingInsights && insightsError && <div className="text-sm text-red-300">{insightsError}</div>}
-              {!isGeneratingInsights && !insightsError && currentInsights && (
-                <div className="whitespace-pre-wrap text-main leading-relaxed text-sm md:text-base">
-                  {currentInsights[insightsTab] || 'No output yet.'}
-                </div>
-              )}
-              {!isGeneratingInsights && !insightsError && !currentInsights && (
-                <div className="text-sm text-muted">No insights generated yet for this story.</div>
-              )}
+                  {isGeneratingInsights && (
+                    <div className="text-muted text-sm flex items-center gap-2 mb-4">
+                      <Loader2 size={15} className="animate-spin" />
+                      Generating insights from the full story...
+                    </div>
+                  )}
+                  {!isGeneratingInsights && insightsError && <div className="text-sm text-red-300 mb-4">{insightsError}</div>}
+
+                  {!isGeneratingInsights && (
+                    <div className="flex flex-col gap-2 h-full">
+                       <textarea
+                          value={contentDraft}
+                          onChange={(e) => setContentDraft(e.target.value)}
+                          className="themed-control w-full flex-1 rounded-lg border px-4 py-3 text-main text-sm md:text-base leading-relaxed min-h-[300px] resize-y focus:ring-2 focus:ring-accent/50 outline-none"
+                          placeholder={insightsTab === 'synopsis' ? "No synopsis yet. Click Generate or start writing..." : "No back cover blurb yet. Click Generate or start writing..."}
+                       />
+                       <div className="text-xs text-muted text-right">
+                          {contentDraft.length} characters
+                       </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -10,6 +10,7 @@ import {
 } from '../auth.js';
 import { listOAuthProviders, startOAuth, handleOAuthCallback } from '../oauth.js';
 import { getUserAiSettings, saveUserAiSettings } from '../userSettings.js';
+import { getUserCreditStatus } from '../monetization.js';
 
 const router = express.Router();
 
@@ -18,6 +19,8 @@ router.post('/login', async (req, res) => {
   const password = String(req.body?.password || '');
   try {
     const session = await loginAndIssueSession(email, password);
+    // Ensure credits are refilled if applicable
+    try { await getUserCreditStatus(email); } catch (e) { /* ignore refill errors */ }
     return res.json(session);
   } catch (error) {
     const message = String(error?.message || error || 'Login failed');
@@ -32,6 +35,8 @@ router.post('/register', async (req, res) => {
   if (!(await getRegistrationEnabled())) return res.status(403).json({ error: 'Account registration is currently disabled' });
   try {
     const session = await registerAndLogin(email, password);
+    // Ensure credits are initialized/refilled
+    try { await getUserCreditStatus(email); } catch (e) { /* ignore refill errors */ }
     return res.json(session);
   } catch (error) {
     return res.status(400).json({ error: String(error.message || error) });
@@ -46,6 +51,8 @@ router.get('/providers', (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const user = await getCurrentUser(req.auth);
+    // Trigger refill check on session validation
+    try { await getUserCreditStatus(req.auth.email); } catch (e) { /* ignore refill errors */ }
     return res.json({ user });
   } catch (error) {
     return res.status(401).json({ error: String(error.message || error) });

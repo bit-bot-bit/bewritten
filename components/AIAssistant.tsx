@@ -253,7 +253,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ storyState, isMobile =
                 <div className="relative flex items-center gap-2">
                     <input 
                         ref={inputRef}
-                        className="flex-1 bg-card hover:bg-card/80 transition-colors text-main placeholder-muted rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none border border-transparent focus:border-accent"
+                        className="flex-1 bg-surface border border-border transition-colors text-main placeholder-muted rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-accent/50 outline-none focus:border-accent"
                         placeholder="Ask your co-author..."
                         value={input}
                         onChange={(e) => setInput(e.target.value)}

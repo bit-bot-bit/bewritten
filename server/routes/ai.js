@@ -94,6 +94,7 @@ async function handleAi(req, res, task, fn) {
     await recordAiRun({ storyId, actorEmail, task, status: 'succeeded' });
     return res.json(data);
   } catch (error) {
+    console.error(`[AI Error] Task: ${task}, User: ${actorEmail}`, error);
     await recordAiRun({ storyId, actorEmail, task, status: 'failed', errorMessage: String(error) });
     const rawMessage = error instanceof Error ? error.message : String(error || 'AI request failed');
     const lower = rawMessage.toLowerCase();

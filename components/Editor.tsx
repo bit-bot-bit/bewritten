@@ -393,7 +393,8 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
               onChange={updateContent}
               onKeyDown={handleKeyDown}
               placeholder="Start writing your chapter..."
-              className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto overflow-x-hidden pb-32 pl-12 md:pl-16"
+              className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto overflow-x-hidden pb-32 px-12 md:px-16"
+              isMobile={isMobile}
             />
           </div>
         ) : (
