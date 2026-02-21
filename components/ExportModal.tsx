@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { StoryState, ExportFormat } from '../types';
-import { Download, Layout, Sparkles, X, FileText, Loader2, Printer, FileType } from 'lucide-react';
+import { Download, Layout, Sparkles, X, FileText, Loader2, Printer, FileType, Database, FileText as DocIcon } from 'lucide-react';
 import { generateBookLayoutCSS, generateStoryBlurb } from '../services/geminiService';
 import { stripBreadcrumbs } from '../utils/breadcrumbs';
+// @ts-ignore
+import { asBlob } from 'html-docx-js-typescript';
 
 interface ExportModalProps {
     isOpen: boolean;
@@ -16,7 +18,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
     const [blurb, setBlurb] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isGeneratingBlurb, setIsGeneratingBlurb] = useState(false);
-    const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('html');
+    const [selectedFormat, setSelectedFormat] = useState<ExportFormat | 'json' | 'docx'>('html');
 
     if (!isOpen) return null;
 
@@ -52,7 +54,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
         URL.revokeObjectURL(url);
     };
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
+        if (selectedFormat === 'json') {
+            downloadFile(JSON.stringify(story, null, 2), 'json', 'application/json');
+            return;
+        }
+
         if (selectedFormat === 'md') {
             let mdContent = `# ${story.title}\n\n`;
             if (blurb) mdContent += `> ${blurb}\n\n---\n\n`;
@@ -73,7 +80,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
             return;
         }
 
-        // HTML / PDF (Print)
+        // HTML Content Construction
         const fullHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -121,6 +128,26 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
 </body>
 </html>
         `;
+
+        if (selectedFormat === 'docx') {
+            try {
+                // Ensure proper blob generation for DOCX
+                const blob = await asBlob(fullHtml, { orientation: 'portrait', margins: { top: 720 } }); // 720 twips = 0.5 inch approx
+                const url = URL.createObjectURL(blob as Blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${story.title.replace(/\s+/g, '_')}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error("DOCX Export failed", e);
+                alert("Failed to generate DOCX. Try HTML/PDF instead.");
+            }
+            return;
+        }
+
         downloadFile(fullHtml, 'html', 'text/html');
     };
 
@@ -139,16 +166,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
 
                 <div className="p-6 flex-1 overflow-y-auto space-y-6">
                     {/* Format Selection */}
-                    <div className="flex gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                         {[
                             { id: 'html', label: 'PDF / HTML', icon: Printer, desc: 'Print-ready layout' },
+                            { id: 'docx', label: 'Word Doc', icon: DocIcon, desc: 'Compatible text document' },
                             { id: 'md', label: 'Markdown', icon: FileType, desc: 'For structure & apps' },
-                            { id: 'txt', label: 'Plain Text', icon: FileText, desc: 'Raw content' }
+                            { id: 'txt', label: 'Plain Text', icon: FileText, desc: 'Raw content' },
+                            { id: 'json', label: 'Backup (JSON)', icon: Database, desc: 'Full data backup' }
                         ].map((fmt) => (
                             <button
                                 key={fmt.id}
-                                onClick={() => setSelectedFormat(fmt.id as ExportFormat)}
-                                className={`flex-1 p-4 rounded-xl border transition-all text-left ${
+                                onClick={() => setSelectedFormat(fmt.id as any)}
+                                className={`p-4 rounded-xl border transition-all text-left ${
                                     selectedFormat === fmt.id
                                     ? 'bg-accent-dim border-accent text-accent'
                                     : 'bg-card border-border hover:border-muted text-muted hover:text-main'
