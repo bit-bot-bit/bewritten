@@ -4,6 +4,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { generateStoryInsights, generateStoryReview, importStoryFromText } from '../services/geminiService';
 import { saveStoryForUser } from '../services/storyService';
 import { generateId } from '../utils/id';
+import { stripHtml } from '../utils/text';
 
 export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory, onAddStory, onUpdateStory }) => {
   const [storyToDelete, setStoryToDelete] = useState(null);
@@ -470,7 +471,7 @@ export const StoryList = ({ stories, activeStoryId, onSelectStory, onDeleteStory
 
             <div className="flex-1">
               <p className={`text-sm mb-4 line-clamp-2 ${story.id === activeStoryId ? 'text-inherit/90' : 'text-muted'}`}>
-                {story.chapters[0]?.content.substring(0, 100) || 'No content yet...'}
+                {stripHtml(story.chapters[0]?.content || '').substring(0, 100) || 'No content yet...'}
               </p>
             </div>
 
