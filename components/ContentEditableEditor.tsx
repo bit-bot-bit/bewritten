@@ -168,20 +168,26 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     }
   };
 
+  const insertTab = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      // Indent from the beginning of the selection/highlight
+      if (!range.collapsed) {
+        range.collapse(true);
+      }
+      document.execCommand('insertText', false, '\t');
+      // Ensure state update
+      handleInput();
+      // Ensure editor remains focused
+      editorRef.current?.focus();
+    }
+  }, [handleInput]);
+
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        // Indent from the beginning of the selection/highlight
-        if (!range.collapsed) {
-          range.collapse(true);
-        }
-        document.execCommand('insertText', false, '\t');
-        // Ensure state update
-        handleInput();
-      }
+      insertTab();
     }
 
     if (onKeyDown) onKeyDown(e);
@@ -210,7 +216,7 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
         aria-placeholder={placeholder}
         style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
       />
-      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} isMobile={isMobile} />
+      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} onIndent={insertTab} isMobile={isMobile} />
     </>
   );
 });
