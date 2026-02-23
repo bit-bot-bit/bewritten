@@ -299,7 +299,8 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
               <div key={chapter.id} className="flex flex-col">
                 <div
                   onClick={() => setStoryState((s) => ({ ...s, currentChapterId: chapter.id }))}
-                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm transition-colors ${storyState.currentChapterId === chapter.id ? 'bg-accent-dim text-accent border border-accent/30' : 'text-muted hover:bg-card'}`}
+                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm transition-colors ${storyState.currentChapterId === chapter.id ? 'border-accent ring-2 ring-accent/50 shadow-md -translate-y-px font-semibold' : 'text-muted hover:bg-card border-transparent'}`}
+                  style={storyState.currentChapterId === chapter.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
                 >
                   <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                     <button
