@@ -32,6 +32,7 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
   const lastHtmlRef = useRef<string>(contentToHtml(content));
   const isComposingRef = useRef(false);
   const [toolbarPosition, setToolbarPosition] = useState<{ x: number, y: number } | null>(null);
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
 
   // Initialize content
   useEffect(() => {
@@ -87,6 +88,19 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     addBreadcrumbFromSelection,
     focus: () => editorRef.current?.focus()
   }));
+
+  const updateToolbarState = useCallback(() => {
+    if (!document) return;
+    try {
+      setActiveFormats({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+      });
+    } catch (e) {
+      // Ignore errors in environments where queryCommandState might fail
+    }
+  }, []);
 
   const updateToolbarPosition = useCallback(() => {
     const selection = window.getSelection();
@@ -210,17 +224,6 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     handleInput();
     editorRef.current?.focus();
   }, [handleInput]);
-
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
-
-  const updateToolbarState = useCallback(() => {
-    if (!document) return;
-    setActiveFormats({
-      bold: document.queryCommandState('bold'),
-      italic: document.queryCommandState('italic'),
-      underline: document.queryCommandState('underline'),
-    });
-  }, []);
 
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {

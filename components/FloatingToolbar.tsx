@@ -1,15 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Bookmark, Bold, Italic, Underline, Indent, AlignJustify } from 'lucide-react';
+import { Bookmark, Bold, Italic, Underline, Indent, Outdent, ArrowRightFromLine, Undo2, Redo2 } from 'lucide-react';
 
 interface FloatingToolbarProps {
   position: { x: number; y: number } | null;
   onAddBreadcrumb: () => void;
   onIndent?: () => void;
   onBlockIndent?: () => void;
+  onBlockOutdent?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  activeFormats?: { bold: boolean; italic: boolean; underline: boolean };
   isMobile?: boolean;
 }
 
-export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, onIndent, onBlockIndent, isMobile = false }) => {
+export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
+  position,
+  onAddBreadcrumb,
+  onIndent,
+  onBlockIndent,
+  onBlockOutdent,
+  onUndo,
+  onRedo,
+  activeFormats = { bold: false, italic: false, underline: false },
+  isMobile = false,
+}) => {
   const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? (window.visualViewport?.height || window.innerHeight) : 0);
 
   useEffect(() => {
@@ -62,12 +76,39 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
       style={style}
       onMouseDown={(e) => e.preventDefault()} // Prevent stealing focus from editor selection
     >
+      {onUndo && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onUndo();
+          }}
+          className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+          title="Undo"
+        >
+          <Undo2 size={16} />
+        </button>
+      )}
+      {onRedo && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRedo();
+          }}
+          className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+          title="Redo"
+        >
+          <Redo2 size={16} />
+        </button>
+      )}
+
+      <div className="w-px h-5 bg-border mx-1" />
+
       <button
         onClick={(e) => {
           e.stopPropagation();
           handleFormat('bold');
         }}
-        className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+        className={`p-2 rounded-lg transition-colors ${activeFormats.bold ? 'text-accent bg-accent/10' : 'text-muted hover:text-main hover:bg-white/10'}`}
         title="Bold"
       >
         <Bold size={16} />
@@ -77,7 +118,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
           e.stopPropagation();
           handleFormat('italic');
         }}
-        className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+        className={`p-2 rounded-lg transition-colors ${activeFormats.italic ? 'text-accent bg-accent/10' : 'text-muted hover:text-main hover:bg-white/10'}`}
         title="Italic"
       >
         <Italic size={16} />
@@ -87,7 +128,7 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
           e.stopPropagation();
           handleFormat('underline');
         }}
-        className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+        className={`p-2 rounded-lg transition-colors ${activeFormats.underline ? 'text-accent bg-accent/10' : 'text-muted hover:text-main hover:bg-white/10'}`}
         title="Underline"
       >
         <Underline size={16} />
@@ -102,9 +143,22 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
             onIndent();
           }}
           className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
-          title="Indent / Tab"
+          title="Insert Tab Character"
         >
-          <Indent size={16} />
+          <ArrowRightFromLine size={16} />
+        </button>
+      )}
+
+      {onBlockOutdent && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onBlockOutdent();
+          }}
+          className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+          title="Decrease Indent"
+        >
+          <Outdent size={16} />
         </button>
       )}
 
@@ -115,9 +169,9 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
             onBlockIndent();
           }}
           className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
-          title="Block Indent"
+          title="Increase Indent"
         >
-          <AlignJustify size={16} />
+          <Indent size={16} />
         </button>
       )}
 
