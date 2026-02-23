@@ -169,6 +169,21 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
   };
 
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        // Indent from the beginning of the selection/highlight
+        if (!range.collapsed) {
+          range.collapse(true);
+        }
+        document.execCommand('insertText', false, '\t');
+        // Ensure state update
+        handleInput();
+      }
+    }
+
     if (onKeyDown) onKeyDown(e);
     // Hide toolbar on typing
     setToolbarPosition(null);
