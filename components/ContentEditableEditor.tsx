@@ -184,6 +184,12 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     }
   }, [handleInput]);
 
+  const indentParagraph = useCallback(() => {
+    document.execCommand('indent', false, '');
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -216,7 +222,13 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
         aria-placeholder={placeholder}
         style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}
       />
-      <FloatingToolbar position={toolbarPosition} onAddBreadcrumb={addBreadcrumbFromSelection} onIndent={insertTab} isMobile={isMobile} />
+      <FloatingToolbar
+        position={toolbarPosition}
+        onAddBreadcrumb={addBreadcrumbFromSelection}
+        onIndent={insertTab}
+        onBlockIndent={indentParagraph}
+        isMobile={isMobile}
+      />
     </>
   );
 });

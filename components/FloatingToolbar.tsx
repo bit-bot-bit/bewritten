@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Bookmark, Bold, Italic, Underline, Indent } from 'lucide-react';
+import { Bookmark, Bold, Italic, Underline, Indent, AlignJustify } from 'lucide-react';
 
 interface FloatingToolbarProps {
   position: { x: number; y: number } | null;
   onAddBreadcrumb: () => void;
   onIndent?: () => void;
+  onBlockIndent?: () => void;
   isMobile?: boolean;
 }
 
-export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, onIndent, isMobile = false }) => {
+export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, onIndent, onBlockIndent, isMobile = false }) => {
   const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? (window.visualViewport?.height || window.innerHeight) : 0);
 
   useEffect(() => {
@@ -104,6 +105,19 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
           title="Indent / Tab"
         >
           <Indent size={16} />
+        </button>
+      )}
+
+      {onBlockIndent && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onBlockIndent();
+          }}
+          className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+          title="Block Indent"
+        >
+          <AlignJustify size={16} />
         </button>
       )}
 
