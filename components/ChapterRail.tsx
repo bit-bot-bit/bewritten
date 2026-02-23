@@ -41,9 +41,10 @@ export const ChapterRail: React.FC<ChapterRailProps> = ({
                 }}
                 className={`w-full text-left flex items-center gap-2 p-3 rounded-lg text-sm transition-colors ${
                   currentChapterId === chapter.id
-                    ? 'bg-accent-dim text-accent border border-accent/30'
-                    : 'text-main/90 bg-card/55 hover:bg-card'
+                    ? 'border-accent ring-2 ring-accent/50 shadow-md -translate-y-px font-semibold'
+                    : 'text-main/90 bg-card/55 hover:bg-card border-transparent'
                 }`}
+                style={currentChapterId === chapter.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
               >
                 <FileText size={14} />
                 <span className="truncate">{chapter.title}</span>
@@ -75,9 +76,10 @@ export const ChapterRail: React.FC<ChapterRailProps> = ({
               onClick={() => onSelectChapter(chapter.id)}
               className={`w-full text-left flex items-center gap-2 p-3 rounded-lg text-sm transition-colors ${
                 currentChapterId === chapter.id
-                  ? 'bg-accent-dim text-accent border border-accent/30'
-                  : 'text-muted hover:bg-card'
+                  ? 'border-accent ring-2 ring-accent/50 shadow-md -translate-y-px font-semibold'
+                  : 'text-muted hover:bg-card border-transparent'
               }`}
+              style={currentChapterId === chapter.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
             >
               <FileText size={14} />
               <span className="truncate">{chapter.title}</span>
