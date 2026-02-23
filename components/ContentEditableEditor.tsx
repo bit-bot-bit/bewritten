@@ -136,7 +136,10 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     const handleSelectionChange = () => {
         // Debounce or just run? Selection change fires rapidly.
         // We need it to be responsive.
-        requestAnimationFrame(updateToolbarPosition);
+        requestAnimationFrame(() => {
+          updateToolbarPosition();
+          updateToolbarState();
+        });
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
@@ -149,7 +152,7 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
       window.removeEventListener('scroll', handleSelectionChange, true);
       window.removeEventListener('resize', handleSelectionChange);
     };
-  }, [updateToolbarPosition]);
+  }, [updateToolbarPosition, updateToolbarState]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -190,6 +193,35 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     editorRef.current?.focus();
   }, [handleInput]);
 
+  const outdentParagraph = useCallback(() => {
+    document.execCommand('outdent', false, '');
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
+  const handleUndo = useCallback(() => {
+    document.execCommand('undo', false, '');
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
+  const handleRedo = useCallback(() => {
+    document.execCommand('redo', false, '');
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
+
+  const updateToolbarState = useCallback(() => {
+    if (!document) return;
+    setActiveFormats({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+    });
+  }, []);
+
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -216,7 +248,12 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
           isComposingRef.current = false;
           handleInput();
         }}
-        onClick={() => updateToolbarPosition()} // Ensure update on click
+        onClick={() => {
+          updateToolbarPosition();
+          updateToolbarState();
+        }}
+        onKeyUp={updateToolbarState}
+        onSelect={updateToolbarState}
         role="textbox"
         aria-multiline="true"
         aria-placeholder={placeholder}
@@ -227,6 +264,10 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
         onAddBreadcrumb={addBreadcrumbFromSelection}
         onIndent={insertTab}
         onBlockIndent={indentParagraph}
+        onBlockOutdent={outdentParagraph}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        activeFormats={activeFormats}
         isMobile={isMobile}
       />
     </>
