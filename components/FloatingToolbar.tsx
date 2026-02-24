@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Bookmark, Bold, Italic, Underline, Indent, AlignJustify } from 'lucide-react';
+import { Bookmark, Bold, Italic, Underline, Indent, Outdent, ChevronsRight } from 'lucide-react';
 
 interface FloatingToolbarProps {
   position: { x: number; y: number } | null;
   onAddBreadcrumb: () => void;
   onIndent?: () => void;
-  onBlockIndent?: () => void;
+  onOutdent?: () => void;
+  onInsertTab?: () => void;
   isMobile?: boolean;
 }
 
-export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, onIndent, onBlockIndent, isMobile = false }) => {
+export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAddBreadcrumb, onIndent, onOutdent, onInsertTab, isMobile = false }) => {
   const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? (window.visualViewport?.height || window.innerHeight) : 0);
 
   useEffect(() => {
@@ -95,6 +96,19 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
 
       <div className="w-px h-5 bg-border mx-1" />
 
+      {onOutdent && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOutdent();
+          }}
+          className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
+          title="Outdent Paragraph"
+        >
+          <Outdent size={16} />
+        </button>
+      )}
+
       {onIndent && (
         <button
           onClick={(e) => {
@@ -102,22 +116,22 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ position, onAd
             onIndent();
           }}
           className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
-          title="Indent / Tab"
+          title="Indent Paragraph"
         >
           <Indent size={16} />
         </button>
       )}
 
-      {onBlockIndent && (
+      {onInsertTab && (
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onBlockIndent();
+            onInsertTab();
           }}
           className="p-2 text-muted hover:text-main hover:bg-white/10 rounded-lg transition-colors"
-          title="Block Indent"
+          title="Insert Tab"
         >
-          <AlignJustify size={16} />
+          <ChevronsRight size={16} />
         </button>
       )}
 

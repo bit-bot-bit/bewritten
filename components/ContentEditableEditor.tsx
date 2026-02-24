@@ -190,6 +190,12 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     editorRef.current?.focus();
   }, [handleInput]);
 
+  const outdentParagraph = useCallback(() => {
+    document.execCommand('outdent', false, '');
+    handleInput();
+    editorRef.current?.focus();
+  }, [handleInput]);
+
   const handleKeyDownWrapper = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -225,8 +231,9 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
       <FloatingToolbar
         position={toolbarPosition}
         onAddBreadcrumb={addBreadcrumbFromSelection}
-        onIndent={insertTab}
-        onBlockIndent={indentParagraph}
+        onIndent={indentParagraph}
+        onOutdent={outdentParagraph}
+        onInsertTab={insertTab}
         isMobile={isMobile}
       />
     </>
