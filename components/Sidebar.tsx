@@ -65,9 +65,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
           <button
             onClick={() => onTabChange(AppTab.STORIES)}
             aria-pressed={activeTab === AppTab.STORIES}
-            className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
-              activeTab === AppTab.STORIES ? 'text-accent bg-accent/18 border border-accent/40' : 'text-main/85'
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] transition-colors ${
+              activeTab === AppTab.STORIES ? '' : 'text-main/85'
             }`}
+            style={activeTab === AppTab.STORIES ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
           >
             <Library size={16} />
             <span className="leading-none">Stories</span>
@@ -80,9 +81,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
                 onClick={() => onTabChange(item.id)}
                 aria-pressed={activeTab === item.id}
                 disabled={shouldDisable}
-              className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] ${
-                activeTab === item.id ? 'text-accent bg-accent/18 border border-accent/40' : shouldDisable ? 'text-muted opacity-35' : 'text-main/85'
-              }`}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg text-[10px] transition-colors ${
+                  activeTab === item.id ? '' : shouldDisable ? 'text-muted opacity-35' : 'text-main/85'
+                }`}
+                style={activeTab === item.id ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
               >
                 <item.icon size={16} />
                 <span className="leading-none whitespace-nowrap">{item.label}</span>
