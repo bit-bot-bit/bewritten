@@ -70,6 +70,7 @@ This project is licensed under the **Polyform Noncommercial License 1.0.0**.
 
 *   **Free for Personal Use:** You are free to use, modify, and distribute this software for non-commercial purposes.
 *   **Commercial Use:** Any use for commercial advantage, financial gain, or monetary compensation requires a separate commercial license from the original authors (**bit-bot-bit**).
+*   **Ownership of Content:** You retain full ownership of any literary works, characters, and other content you create using this software.
 
 See [LICENSE](LICENSE) for the full license text.
 
