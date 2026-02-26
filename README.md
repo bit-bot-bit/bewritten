@@ -66,12 +66,12 @@ The application supports multiple visual themes to match your writing mood:
 
 ## 📄 License
 
-This project is licensed under the **bit-bot-bit Noncommercial Opensource License v1.0.1**.
+This project is licensed under the **bit-bot-bit Source-available License v1.0.1**.
 
 *   **Allowed Uses:** Internal business use, self-hosting, modification, and free redistribution are explicitly allowed.
 *   **Prohibited Uses:** Selling the software, charging for access (SaaS/PaaS), API monetization, paid bundling, and sublicensing are strictly prohibited without a commercial license.
 *   **Commercial Use:** Any use for direct commercial advantage (selling, renting, SaaS) requires a separate commercial license from the original authors (**bit-bot-bit**).
-*   **Ownership of Content:** You retain full ownership of any literary works, characters, and other content you create using this software.
+*   **Ownership of Content:** You retain full ownership of any literary works, characters, and other content you create using this software. User content produced with the software owes no royalties or fees to the licensor.
 *   **Derivative Works:** Derivative works must remain under this license. Derivatives cannot be used to monetize or take ownership of user-generated content.
 *   **Data Responsibility:** You are solely responsible for the maintenance and backup of your data. The licensor is not liable for any data loss.
 *   **As-Is & No Liability:** The software is provided "as-is". The licensor is not liable for any misuse, behavior, or output of the tooling (including AI hallucinations).
