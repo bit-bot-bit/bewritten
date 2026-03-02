@@ -416,16 +416,14 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                                sel.removeAllRanges();
                                sel.addRange(savedRange);
                              }
-                             document.execCommand('insertText', false, processed + " ");
-                             updateContent(editorRef.current?.getHtml?.() || '');
+                             editorRef.current?.insertText?.(processed + " ");
                            } catch (err) {
                              // Restore selection before inserting
                              if (savedRange && sel) {
                                sel.removeAllRanges();
                                sel.addRange(savedRange);
                              }
-                             document.execCommand('insertText', false, result.text + " ");
-                             updateContent(editorRef.current?.getHtml?.() || '');
+                             editorRef.current?.insertText?.(result.text + " ");
                            }
                         }
                         // Ignore interim results for simplicity with contentEditable cursor handling

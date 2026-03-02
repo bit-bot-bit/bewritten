@@ -18,6 +18,7 @@ export interface EditorRef {
   addBreadcrumbFromSelection: () => void;
   focus: () => void;
   getHtml: () => string;
+  insertText: (text: string) => void;
 }
 
 export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditorProps>(({
@@ -88,6 +89,13 @@ export const ContentEditableEditor = forwardRef<EditorRef, ContentEditableEditor
     addBreadcrumbFromSelection,
     focus: () => editorRef.current?.focus(),
     getHtml: () => editorRef.current?.innerHTML || '',
+    insertText: (text: string) => {
+      if (editorRef.current) {
+        editorRef.current.focus();
+        document.execCommand('insertText', false, text);
+        handleInput();
+      }
+    }
   }));
 
   const updateToolbarPosition = useCallback(() => {
