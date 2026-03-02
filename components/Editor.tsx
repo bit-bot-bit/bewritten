@@ -367,13 +367,13 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
 
       <div className="flex-1 h-full flex flex-col max-w-4xl mx-auto w-full relative">
         <div className="px-4 md:px-12 pt-6 md:pt-8 pb-4 flex flex-col gap-2">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3">
-              <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} onBlur={normalizeStoryTitle} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors" />
-              <span className="text-[11px] px-2 py-1 rounded border border-border text-muted bg-card/70">{saveStatus}</span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto overflow-hidden">
+              <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} onBlur={normalizeStoryTitle} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors min-w-0 flex-1" />
+              <span className="text-[11px] px-2 py-1 rounded border border-border text-muted bg-card/70 whitespace-nowrap">{saveStatus}</span>
             </div>
 
-            <div className="flex bg-surface rounded-lg p-1 border border-border">
+            <div className="flex bg-surface rounded-lg p-1.5 border border-border shrink-0 self-end sm:self-auto">
               <button
                 onClick={async () => {
                   if (isDictating) {
@@ -451,29 +451,29 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                     editorRef.current?.focus();
                   }
                 }}
-                className={`p-1.5 rounded-md border transition-all ${isDictating ? 'border-red-500/50 text-red-500 ring-2 ring-red-500/30 shadow-sm animate-pulse' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
+                className={`p-2.5 sm:p-2 rounded-md border transition-all ${isDictating ? 'border-red-500/50 text-red-500 ring-2 ring-red-500/30 shadow-sm animate-pulse' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
                 title="Dictate"
               >
-                {isDictating ? <Mic size={16} /> : <MicOff size={16} />}
+                {isDictating ? <Mic size={18} className="sm:w-4 sm:h-4" /> : <MicOff size={18} className="sm:w-4 sm:h-4" />}
               </button>
               <div className="w-px bg-border mx-1" />
               <button
                 onClick={() => setViewMode('edit')}
                 aria-pressed={viewMode === 'edit'}
-                className={`p-1.5 rounded-md border transition-all ${viewMode === 'edit' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
+                className={`p-2.5 sm:p-2 rounded-md border transition-all ${viewMode === 'edit' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
                 style={viewMode === 'edit' ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
                 title="Edit Mode"
               >
-                <Edit3 size={16} />
+                <Edit3 size={18} className="sm:w-4 sm:h-4" />
               </button>
               <button
                 onClick={() => setViewMode('page')}
                 aria-pressed={viewMode === 'page'}
-                className={`p-1.5 rounded-md border transition-all ${viewMode === 'page' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
+                className={`p-2.5 sm:p-2 rounded-md border transition-all ${viewMode === 'page' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
                 style={viewMode === 'page' ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
                 title="Page View"
               >
-                <Eye size={16} />
+                <Eye size={18} className="sm:w-4 sm:h-4" />
               </button>
             </div>
           </div>
