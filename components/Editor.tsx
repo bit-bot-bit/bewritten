@@ -393,6 +393,7 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
 
                     let interimTextNode: Text | null = null;
 
+                    // Catch the promise rejection if start itself fails
                     dictationServiceRef.current.start(
                       async (result: any) => {
                         if (result.isFinal) {
@@ -441,7 +442,10 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                         // We rely on stop() to fully turn it off.
                         setIsDictating(false);
                       }
-                    );
+                    ).catch((err: any) => {
+                      console.error("Failed to start dictation", err);
+                      setIsDictating(false);
+                    });
 
                     // Focus editor to ensure we can type into it
                     editorRef.current?.focus();

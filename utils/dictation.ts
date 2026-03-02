@@ -71,7 +71,7 @@ export class DictationService {
     return !!this.recognition;
   }
 
-  public start(
+  public async start(
     onResult: (result: DictationResult) => void,
     onError: (error: string) => void,
     onEnd: () => void
@@ -80,14 +80,35 @@ export class DictationService {
       onError('Speech recognition is not supported in this browser.');
       return;
     }
+
     this.onResultCallback = onResult;
     this.onErrorCallback = onError;
     this.onEndCallback = onEnd;
-    this.isListening = true;
+
     try {
-      this.recognition.start();
-    } catch (e) {
-      // Ignore start errors if already started
+      // Explicitly ask the user for microphone access first if they haven't granted it.
+      // This forces the browser permission dialogue to appear instead of failing silently.
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Immediately stop the tracks since we don't need the raw stream, just the permission
+        stream.getTracks().forEach(track => track.stop());
+      }
+
+      this.isListening = true;
+      try {
+        this.recognition.start();
+      } catch (e) {
+        // Ignore start errors if already started
+      }
+    } catch (err: any) {
+      console.error("Microphone permission error:", err);
+      this.isListening = false;
+      // Provide a clearer error message based on the exception
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        onError("Microphone access denied. Please allow microphone access in your browser settings (HTTPS is required on some browsers).");
+      } else {
+        onError("Microphone access error: " + (err.message || String(err)));
+      }
     }
   }
 
