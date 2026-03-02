@@ -508,6 +508,29 @@ router.post('/story-review', (req, res) =>
   })
 );
 
+router.post('/dictation', (req, res) =>
+  handleAi(req, res, 'dictation', async () => {
+    const { text = '', context = '' } = req.body;
+    if (!text) throw new Error('No dictation text provided.');
+
+    const prompt = `You are an AI assistant helping a writer transcribe dictated audio.
+The user just spoke the following words: "${text}"
+
+Here is the most recent context from the editor (the text right before where they are dictating):
+"""
+${String(context).slice(-2000)}
+"""
+
+Your task is to properly format, punctuate, and integrate the dictated text so that it naturally follows the context and fits a story structure. Fix any obvious transcription errors or grammar mistakes in the dictated text, but try to preserve the user's intent. Do not change the context, only return the processed version of the dictated text that should be inserted next. Keep it concise.`;
+
+    const processedText = await runTextPrompt({
+      prompt,
+      actorEmail: req.auth.email
+    });
+    return { text: processedText };
+  })
+);
+
 router.post('/import-story', (req, res) =>
   handleAi(req, res, 'import-story', async () => {
     const text = String(req.body?.text || '').slice(0, 800000); // Allow up to ~800k chars (approx 150-200k tokens)

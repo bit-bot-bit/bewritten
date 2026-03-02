@@ -61,6 +61,7 @@ export function getDefaultUserAiSettings() {
     credits: null,
     monetizationEnabled: false,
     themeId: 'nexus',
+    aiDictation: false,
   };
 }
 
@@ -76,7 +77,7 @@ export async function getUserAiSettings(email, options = {}) {
   const { includeSecret = false } = options;
   const db = getDb();
   const row = await db('user_settings')
-    .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url', 'theme_id')
+    .select('ai_target', 'ai_api_key', 'ai_model', 'ai_base_url', 'theme_id', 'ai_dictation')
     .where('user_email', email)
     .first();
   const availableTargets = await getAvailableTargetsForUser(email);
@@ -112,6 +113,7 @@ export async function getUserAiSettings(email, options = {}) {
     monetizationEnabled: Boolean(credits?.monetizationEnabled),
     taskCosts: credits?.taskCosts || {},
     themeId,
+    aiDictation: Boolean(row.ai_dictation),
   };
 }
 
@@ -147,6 +149,7 @@ export async function saveUserAiSettings(email, next, options = {}) {
       ai_model: merged.aiModel || '',
       ai_base_url: merged.aiBaseUrl || '',
       theme_id: themeId,
+      ai_dictation: merged.aiDictation ? 1 : 0,
       created_at: nowIso(),
       updated_at: nowIso(),
     })
@@ -157,6 +160,7 @@ export async function saveUserAiSettings(email, next, options = {}) {
       ai_model: merged.aiModel || '',
       ai_base_url: merged.aiBaseUrl || '',
       theme_id: themeId,
+      ai_dictation: merged.aiDictation ? 1 : 0,
       updated_at: nowIso(),
     });
 

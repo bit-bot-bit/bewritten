@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { checkContinuity } from '../services/geminiService';
-import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp, Bookmark } from 'lucide-react';
+import { AlertCircle, CheckCircle, Wand2, Loader2, Plus, FileText, Trash2, ChevronLeft, ChevronRight, Download, Edit3, Eye, Disc, ChevronDown, ChevronUp, Bookmark, Mic, MicOff } from 'lucide-react';
 import { ExportModal } from './ExportModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import { generateId } from '../utils/id';
@@ -8,6 +8,8 @@ import { formatTitleCase } from '../utils/titleCase';
 import { ContentEditableEditor, EditorRef } from './ContentEditableEditor';
 import { stripBreadcrumbs, parseBreadcrumbs, removeBreadcrumb } from '../utils/breadcrumbs';
 import { scrollToElement, focusEditorEnd } from '../utils/editorDom';
+import { DictationService, processDictationText } from '../utils/dictation';
+import { htmlToContent, contentToHtml } from '../utils/breadcrumbs';
 
 const BOOK_FORMATS = [
   { id: 'standard', name: 'Standard (6" x 9")', width: '6in', heightPx: 864, pageCss: '@page { size: 6in 9in; margin: 1in; }' },
@@ -155,6 +157,9 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   const maxPreviewWidth = Math.max(180, viewportWidth - (isMobile ? 72 : 120));
   const previewScale = Math.min(1, maxPreviewWidth / pageWidthPx);
 
+  const [isDictating, setIsDictating] = useState(false);
+  const dictationServiceRef = useRef<any>(null);
+
   useEffect(() => {
     const onResize = () => {
       setIsMobile(detectMobile());
@@ -167,6 +172,15 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
   useEffect(() => {
     if (isMobile) setShowChapters(false);
   }, [isMobile]);
+
+  // Clean up dictation service on unmount
+  useEffect(() => {
+    return () => {
+      if (dictationServiceRef.current) {
+        dictationServiceRef.current.stop();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isMobile && viewMode === 'page' && showChapters) {
@@ -360,6 +374,83 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
             </div>
 
             <div className="flex bg-surface rounded-lg p-1 border border-border">
+              <button
+                onClick={async () => {
+                  if (isDictating) {
+                    setIsDictating(false);
+                    if (dictationServiceRef.current) {
+                      dictationServiceRef.current.stop();
+                    }
+                  } else {
+                    if (!dictationServiceRef.current) {
+                      dictationServiceRef.current = new DictationService();
+                    }
+                    if (!dictationServiceRef.current.isSupported()) {
+                      alert("Dictation is not supported in this browser.");
+                      return;
+                    }
+                    setIsDictating(true);
+
+                    let interimTextNode: Text | null = null;
+
+                    dictationServiceRef.current.start(
+                      async (result: any) => {
+                        if (result.isFinal) {
+                           // Extract context before async await so we capture the current editor state
+                           const html = editorRef.current?.getHtml?.() || currentChapter.content || '';
+                           const plainContent = htmlToContent(html);
+                           const context = plainContent.slice(-2000);
+
+                           // Save selection since we are about to make an async call
+                           let savedRange: Range | null = null;
+                           const sel = window.getSelection();
+                           if (sel && sel.rangeCount > 0) {
+                             savedRange = sel.getRangeAt(0).cloneRange();
+                           }
+
+                           try {
+                             const processed = await processDictationText(result.text, context);
+
+                             // Restore selection before inserting
+                             if (savedRange && sel) {
+                               sel.removeAllRanges();
+                               sel.addRange(savedRange);
+                             }
+                             document.execCommand('insertText', false, processed + " ");
+                             updateContent(editorRef.current?.getHtml?.() || '');
+                           } catch (err) {
+                             // Restore selection before inserting
+                             if (savedRange && sel) {
+                               sel.removeAllRanges();
+                               sel.addRange(savedRange);
+                             }
+                             document.execCommand('insertText', false, result.text + " ");
+                             updateContent(editorRef.current?.getHtml?.() || '');
+                           }
+                        }
+                        // Ignore interim results for simplicity with contentEditable cursor handling
+                      },
+                      (error: string) => {
+                        console.error("Dictation error:", error);
+                        setIsDictating(false);
+                      },
+                      () => {
+                        // Dictation automatically restarts via onend in DictationService,
+                        // so we don't need to do anything here unless we want to update UI.
+                        // We rely on stop() to fully turn it off.
+                      }
+                    );
+
+                    // Focus editor to ensure we can type into it
+                    editorRef.current?.focus();
+                  }
+                }}
+                className={`p-1.5 rounded-md border transition-all ${isDictating ? 'border-red-500/50 text-red-500 ring-2 ring-red-500/30 shadow-sm animate-pulse' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
+                title="Dictate"
+              >
+                {isDictating ? <Mic size={16} /> : <MicOff size={16} />}
+              </button>
+              <div className="w-px bg-border mx-1" />
               <button
                 onClick={() => setViewMode('edit')}
                 aria-pressed={viewMode === 'edit'}
