@@ -21,6 +21,7 @@ export const UserSettings = () => {
     credits: null,
     monetizationEnabled: false,
     themeId: 'nexus',
+    aiDictation: false,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -103,6 +104,21 @@ export const UserSettings = () => {
           </div>
         </div>
       )}
+
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="w-4 h-4 rounded border-border text-accent focus:ring-accent/50 bg-transparent"
+            checked={settings.aiDictation}
+            onChange={(e) => setSettings((prev) => ({ ...prev, aiDictation: e.target.checked }))}
+          />
+          <span className="text-sm text-main font-medium">Enable AI-Powered Dictation</span>
+        </label>
+        <p className="text-xs text-muted ml-6">
+          When dictating, AI will automatically format your speech, fix transcription errors, and integrate it naturally into your story structure based on the surrounding text.
+        </p>
+      </div>
 
       <div className="space-y-3">
         <label className="block text-sm text-muted">AI Target</label>

@@ -14,6 +14,7 @@ export interface AiService {
   generateStoryInsights(story: any, focus?: string): Promise<any>;
   generateStoryReview(story: any, genre?: string): Promise<any>;
   importStoryFromText(text: string): Promise<any>;
+  formatDictation(text: string, context: string): Promise<{ text: string }>;
 }
 
 export class RestAiService implements AiService {
@@ -95,6 +96,11 @@ export class RestAiService implements AiService {
       chapters: [{ title: 'Chapter 1', content: text, order: 1 }],
     };
   }
+
+  async formatDictation(text, context) {
+    const data = await apiPost('/ai/dictation', { text, context });
+    return data || { text };
+  }
 }
 
 let currentAiService: AiService = new RestAiService();
@@ -158,4 +164,8 @@ export function generateStoryReview(story, genre) {
 
 export function importStoryFromText(text) {
   return currentAiService.importStoryFromText(text);
+}
+
+export function formatDictation(text, context) {
+  return currentAiService.formatDictation(text, context);
 }
