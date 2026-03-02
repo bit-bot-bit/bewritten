@@ -431,11 +431,15 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
                       (error: string) => {
                         console.error("Dictation error:", error);
                         setIsDictating(false);
+                        if (dictationServiceRef.current) {
+                          dictationServiceRef.current.stop();
+                        }
                       },
                       () => {
                         // Dictation automatically restarts via onend in DictationService,
                         // so we don't need to do anything here unless we want to update UI.
                         // We rely on stop() to fully turn it off.
+                        setIsDictating(false);
                       }
                     );
 

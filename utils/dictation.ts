@@ -42,6 +42,11 @@ export class DictationService {
       };
 
       this.recognition.onerror = (event: any) => {
+        // Prevent infinite restart loops on permission or fatal errors
+        if (event.error === 'not-allowed' || event.error === 'audio-capture' || event.error === 'network') {
+          this.isListening = false;
+        }
+
         if (this.onErrorCallback) {
           this.onErrorCallback(event.error);
         }
@@ -49,7 +54,12 @@ export class DictationService {
 
       this.recognition.onend = () => {
         if (this.isListening) {
-          this.recognition.start(); // Auto-restart if it stops unexpectedly
+          try {
+            this.recognition.start(); // Auto-restart if it stops unexpectedly
+          } catch (e) {
+            this.isListening = false;
+            if (this.onEndCallback) this.onEndCallback();
+          }
         } else if (this.onEndCallback) {
           this.onEndCallback();
         }
