@@ -2,6 +2,6 @@ apiVersion: v2
 name: bewritten
 description: A Helm chart for Mythos AI Story Architect
 type: application
-version: 0.1.53
-appVersion: "0.1.53"
+version: 0.1.54
+appVersion: "0.1.54"
 dependencies: []
