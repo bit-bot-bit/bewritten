@@ -52,11 +52,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onThem
           <BookOpen size={22} />
         </div>
 
-        <div className="fixed top-2 right-3 z-30 flex items-center gap-2">
-          <button onClick={onThemeChange} className="p-2 rounded-xl text-muted hover:text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Switch Theme">
+        <div className="fixed top-2 right-3 z-30 flex items-center gap-1.5">
+          <div id="mobile-editor-toolbar" className="empty:hidden mr-1 flex items-center" />
+          <button onClick={onThemeChange} className="p-1.5 rounded-xl text-muted hover:text-accent bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Switch Theme">
             <Palette size={18} />
           </button>
-          <button onClick={onLogout} className="p-2 rounded-xl text-muted hover:text-red-400 bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Sign Out">
+          <button onClick={onLogout} className="p-1.5 rounded-xl text-muted hover:text-red-400 bg-surface/85 backdrop-blur-xl border border-border shadow-lg transition-colors" title="Sign Out">
             <LogOut size={18} />
           </button>
         </div>
