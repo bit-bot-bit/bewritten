@@ -10,6 +10,7 @@ import { stripBreadcrumbs, parseBreadcrumbs, removeBreadcrumb } from '../utils/b
 import { scrollToElement, focusEditorEnd } from '../utils/editorDom';
 import { DictationService, processDictationText } from '../utils/dictation';
 import { htmlToContent, contentToHtml } from '../utils/breadcrumbs';
+import { EditorToolbar } from './EditorToolbar';
 
 const BOOK_FORMATS = [
   { id: 'standard', name: 'Standard (6" x 9")', width: '6in', heightPx: 864, pageCss: '@page { size: 6in 9in; margin: 1in; }' },
@@ -159,6 +160,80 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
 
   const [isDictating, setIsDictating] = useState(false);
   const dictationServiceRef = useRef<any>(null);
+
+  const handleDictateToggle = async () => {
+    if (isDictating) {
+      setIsDictating(false);
+      if (dictationServiceRef.current) {
+        dictationServiceRef.current.stop();
+      }
+    } else {
+      if (!dictationServiceRef.current) {
+        dictationServiceRef.current = new DictationService();
+      }
+      if (!dictationServiceRef.current.isSupported()) {
+        alert("Dictation is not supported in this browser.");
+        return;
+      }
+      setIsDictating(true);
+
+      let interimTextNode: Text | null = null;
+
+      // Catch the promise rejection if start itself fails
+      dictationServiceRef.current.start(
+        async (result: any) => {
+          if (result.isFinal) {
+             // Extract context before async await so we capture the current editor state
+             const html = editorRef.current?.getHtml?.() || currentChapter.content || '';
+             const plainContent = htmlToContent(html);
+             const context = plainContent.slice(-2000);
+
+             // Save selection since we are about to make an async call
+             let savedRange: Range | null = null;
+             const sel = window.getSelection();
+             if (sel && sel.rangeCount > 0) {
+               savedRange = sel.getRangeAt(0).cloneRange();
+             }
+
+             try {
+               const processed = await processDictationText(result.text, context);
+
+               // Restore selection before inserting
+               if (savedRange && sel) {
+                 sel.removeAllRanges();
+                 sel.addRange(savedRange);
+               }
+               editorRef.current?.insertText?.(processed + " ");
+             } catch (err) {
+               // Restore selection before inserting
+               if (savedRange && sel) {
+                 sel.removeAllRanges();
+                 sel.addRange(savedRange);
+               }
+               editorRef.current?.insertText?.(result.text + " ");
+             }
+          }
+          // Ignore interim results for simplicity with contentEditable cursor handling
+        },
+        (error: string) => {
+          console.error("Dictation error:", error);
+          setIsDictating(false);
+          if (dictationServiceRef.current) {
+            dictationServiceRef.current.stop();
+          }
+        },
+        () => {
+          setIsDictating(false);
+        }
+      ).catch((err: any) => {
+        console.error("Failed to start dictation", err);
+        setIsDictating(false);
+      });
+
+      // Focus editor to ensure we can type into it
+      editorRef.current?.focus();
+    }
+  };
 
   useEffect(() => {
     const onResize = () => {
@@ -365,117 +440,33 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
         {showChapters ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
 
+      {isMobile && (
+        <EditorToolbar
+          isMobileStyle={true}
+          isDictating={isDictating}
+          viewMode={viewMode}
+          onDictateToggle={handleDictateToggle}
+          onViewModeChange={setViewMode}
+        />
+      )}
+
       <div className="flex-1 h-full flex flex-col max-w-4xl mx-auto w-full relative">
         <div className="px-4 md:px-12 pt-6 md:pt-8 pb-4 flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-3">
-          <div className="flex items-center gap-3 w-full justify-between sm:w-auto sm:justify-start overflow-hidden">
-              <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} onBlur={normalizeStoryTitle} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors min-w-0 flex-1" />
-              <span className="text-[11px] px-2 py-1 rounded border border-border text-muted bg-card/70 whitespace-nowrap">{saveStatus}</span>
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3">
+              <input type="text" value={storyState.title} onChange={(e) => updateStoryTitle(e.target.value)} onBlur={normalizeStoryTitle} placeholder="Story Title" className="bg-transparent text-sm font-semibold uppercase tracking-widest text-muted outline-none focus:text-accent transition-colors" />
+              <span className="text-[11px] px-2 py-1 rounded border border-border text-muted bg-card/70">{saveStatus}</span>
             </div>
 
-          <div className="flex bg-surface rounded-lg p-2 sm:p-1.5 border border-border shrink-0 self-end sm:self-auto w-full sm:w-auto justify-center sm:justify-start">
-              <button
-                onClick={async () => {
-                  if (isDictating) {
-                    setIsDictating(false);
-                    if (dictationServiceRef.current) {
-                      dictationServiceRef.current.stop();
-                    }
-                  } else {
-                    if (!dictationServiceRef.current) {
-                      dictationServiceRef.current = new DictationService();
-                    }
-                    if (!dictationServiceRef.current.isSupported()) {
-                      alert("Dictation is not supported in this browser.");
-                      return;
-                    }
-                    setIsDictating(true);
-
-                    let interimTextNode: Text | null = null;
-
-                    // Catch the promise rejection if start itself fails
-                    dictationServiceRef.current.start(
-                      async (result: any) => {
-                        if (result.isFinal) {
-                           // Extract context before async await so we capture the current editor state
-                           const html = editorRef.current?.getHtml?.() || currentChapter.content || '';
-                           const plainContent = htmlToContent(html);
-                           const context = plainContent.slice(-2000);
-
-                           // Save selection since we are about to make an async call
-                           let savedRange: Range | null = null;
-                           const sel = window.getSelection();
-                           if (sel && sel.rangeCount > 0) {
-                             savedRange = sel.getRangeAt(0).cloneRange();
-                           }
-
-                           try {
-                             const processed = await processDictationText(result.text, context);
-
-                             // Restore selection before inserting
-                             if (savedRange && sel) {
-                               sel.removeAllRanges();
-                               sel.addRange(savedRange);
-                             }
-                             editorRef.current?.insertText?.(processed + " ");
-                           } catch (err) {
-                             // Restore selection before inserting
-                             if (savedRange && sel) {
-                               sel.removeAllRanges();
-                               sel.addRange(savedRange);
-                             }
-                             editorRef.current?.insertText?.(result.text + " ");
-                           }
-                        }
-                        // Ignore interim results for simplicity with contentEditable cursor handling
-                      },
-                      (error: string) => {
-                        console.error("Dictation error:", error);
-                        setIsDictating(false);
-                        if (dictationServiceRef.current) {
-                          dictationServiceRef.current.stop();
-                        }
-                      },
-                      () => {
-                        // Dictation automatically restarts via onend in DictationService,
-                        // so we don't need to do anything here unless we want to update UI.
-                        // We rely on stop() to fully turn it off.
-                        setIsDictating(false);
-                      }
-                    ).catch((err: any) => {
-                      console.error("Failed to start dictation", err);
-                      setIsDictating(false);
-                    });
-
-                    // Focus editor to ensure we can type into it
-                    editorRef.current?.focus();
-                  }
-                }}
-                className={`flex-1 sm:flex-none flex justify-center items-center p-2.5 sm:p-2 rounded-md border transition-all ${isDictating ? 'border-red-500/50 text-red-500 ring-2 ring-red-500/30 shadow-sm animate-pulse' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
-                title="Dictate"
-              >
-                {isDictating ? <Mic size={18} className="sm:w-4 sm:h-4" /> : <MicOff size={18} className="sm:w-4 sm:h-4" />}
-              </button>
-              <div className="w-px bg-border mx-1 my-1 sm:my-0" />
-              <button
-                onClick={() => setViewMode('edit')}
-                aria-pressed={viewMode === 'edit'}
-                className={`flex-1 sm:flex-none flex justify-center items-center p-2.5 sm:p-2 rounded-md border transition-all ${viewMode === 'edit' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
-                style={viewMode === 'edit' ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
-                title="Edit Mode"
-              >
-                <Edit3 size={18} className="sm:w-4 sm:h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('page')}
-                aria-pressed={viewMode === 'page'}
-                className={`flex-1 sm:flex-none flex justify-center items-center p-2.5 sm:p-2 rounded-md border transition-all ${viewMode === 'page' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
-                style={viewMode === 'page' ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
-                title="Page View"
-              >
-                <Eye size={18} className="sm:w-4 sm:h-4" />
-              </button>
-            </div>
+            {!isMobile && (
+              <EditorToolbar
+                isMobileStyle={false}
+                isDictating={isDictating}
+                viewMode={viewMode}
+                onDictateToggle={handleDictateToggle}
+                onViewModeChange={setViewMode}
+              />
+            )}
           </div>
 
           <input type="text" value={currentChapter.title} onChange={(e) => updateChapterTitle(e.target.value)} onBlur={normalizeChapterTitle} placeholder="Chapter Title" className="w-full bg-transparent text-2xl md:text-4xl font-serif font-bold text-main placeholder-muted outline-none border-b border-transparent focus:border-border transition-colors pb-2" />
