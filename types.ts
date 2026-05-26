@@ -12,6 +12,7 @@ export interface Chapter {
   title: string;
   content: string;
   order: number;
+  notes?: string;
 }
 
 export interface Character {

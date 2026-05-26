@@ -270,6 +270,13 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
     }));
   };
 
+  const updateChapterNotes = (newNotes) => {
+    setStoryState((prev) => ({
+      ...prev,
+      chapters: prev.chapters.map((c) => (c.id === currentChapter.id ? { ...c, notes: newNotes } : c)),
+    }));
+  };
+
   const updateChapterTitle = (newTitle) => {
     setStoryState((prev) => ({
       ...prev,
@@ -483,6 +490,15 @@ export const Editor = ({ storyState, setStoryState, saveStatus = 'Saved' }) => {
               placeholder="Start writing your chapter..."
               className="breadcrumb-editor w-full h-full bg-transparent outline-none text-lg leading-relaxed font-serif text-main/90 placeholder-muted/50 selection:bg-accent-dim overflow-y-auto overflow-x-hidden pb-32 px-12 md:px-16"
               isMobile={isMobile}
+            />
+          </div>
+        ) : viewMode === 'notes' ? (
+          <div className="flex-1 px-4 md:px-12 pb-6 md:pb-12 overflow-hidden flex flex-col pt-4">
+            <textarea
+              value={currentChapter.notes || ''}
+              onChange={(e) => updateChapterNotes(e.target.value)}
+              placeholder="Jot down notes, ideas, or to-dos specific to this chapter..."
+              className="w-full h-full bg-transparent outline-none text-base leading-relaxed font-sans text-main/90 placeholder-muted/50 resize-none overflow-y-auto pb-32 px-12 md:px-16"
             />
           </div>
         ) : (
