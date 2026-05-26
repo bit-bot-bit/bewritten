@@ -121,11 +121,21 @@ export function htmlToContent(html: string): string {
 
   // 2. Clean up block elements
   content = content
+    // Convert empty divs with br to empty divs to prevent double counting newlines
+    .replace(/<div>\s*<br\s*\/?>\s*<\/div>/gi, '<div></div>')
+    // Handle block transitions
+    .replace(/<\/div>\s*<div>/gi, '\n')
+    .replace(/<\/p>\s*<p>/gi, '\n\n')
+    // Remaining break tags
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/div><div>/gi, '\n')
+    // Remove starting block tags so they don't prepend newlines to the whole text
+    .replace(/^<div>/i, '')
+    .replace(/^<p>/i, '')
+    // Remaining opening block tags denote newlines
     .replace(/<div>/gi, '\n')
-    .replace(/<\/div>/gi, '')
     .replace(/<p>/gi, '\n')
+    // Clean up remaining closing tags
+    .replace(/<\/div>/gi, '')
     .replace(/<\/p>/gi, '')
     .replace(/&nbsp;/g, ' ')
     // Preserve formatting tags before unescaping
