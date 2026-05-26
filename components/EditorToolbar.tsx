@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Edit3, Eye, Mic, MicOff } from 'lucide-react';
+import { Edit3, Eye, Mic, MicOff, StickyNote } from 'lucide-react';
 
 export const EditorToolbar = ({
   isMobileStyle = false,
@@ -38,6 +38,15 @@ export const EditorToolbar = ({
         title="Page View"
       >
         <Eye size={16} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('notes')}
+        aria-pressed={viewMode === 'notes'}
+        className={`p-1.5 rounded-md border transition-all ${viewMode === 'notes' ? 'border-accent ring-2 ring-accent/50 shadow-sm' : 'border-transparent text-muted hover:text-main hover:bg-card/70'}`}
+        style={viewMode === 'notes' ? { backgroundColor: 'var(--color-text-main)', color: 'var(--color-bg)' } : undefined}
+        title="Chapter Notes"
+      >
+        <StickyNote size={16} />
       </button>
     </div>
   );

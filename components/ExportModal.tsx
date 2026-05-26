@@ -106,7 +106,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, story
 <body>
     <div class="title-page">
         <h1 class="book-title">${story.title}</h1>
-        <h2 class="author-name">Written with Mythos AI</h2>
     </div>
 
     ${blurb ? `
